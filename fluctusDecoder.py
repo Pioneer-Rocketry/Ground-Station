@@ -1,5 +1,5 @@
 import pprint
-from enum import Enum
+import re
 
 # Fluctus Decoder
 # This takes a string from the Fluctus Ground Station and decodes it into telemetry data
@@ -99,7 +99,9 @@ def decodeFluctusData(inputStr):
         "warnCode":     int("".join(rawByteArray[33:34][::-1]), 16),            # int8
         "message":      message,
         "userIn1":      userIn1,
-        "userIn2":      userIn2
+        "userIn2":      userIn2,
+        "rssi":         re.search(r'rssi([-+]?\d+)', diagnostics).group(1),
+        "snr":          re.search(r'snr([-+]?\d+)', diagnostics).group(1),
     }
 
 if __name__ == "__main__":
