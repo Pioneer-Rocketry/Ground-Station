@@ -57,9 +57,17 @@ def decodeFluctusData(inputStr):
     elif (pyroCStatus == 1): pyroStates["pyroC"] = "Continuity"
     elif (pyroCStatus == 3): pyroStates["pyroC"] = "Enabled / Fired"
 
+
+    def decodeInt(arr, signed=False):
+        value = int("".join(arr), 16)
+        if signed and (value & 0x800000) != 0: 
+            return -value
+
+        return value
+
     # Decode Message
-    messageType = int("".join(rawByteArray[34]), 16)
-    messageData = int("".join(rawByteArray[35:38][::-1]), 16)
+    messageType = decodeInt(rawByteArray[34])
+    messageData = decodeInt(rawByteArray[35:38][::-1])
     if messageData & 0x800000: messageData = -messageData
 
     messageTypeStr = "Error"
@@ -80,23 +88,23 @@ def decodeFluctusData(inputStr):
     return {
         "callsign":     callsign,
         "packetType":   packetType,
-        "uid":          int("".join(rawByteArray[0:2][::-1]),   16),            # int16
-        "fw":           int("".join(rawByteArray[2:4][::-1]),   16),            # int16
-        "rx":           int("".join(rawByteArray[4:5][::-1]),   16),            # int8
-        "timeMPU":      int("".join(rawByteArray[5:9][::-1]),   16),            # int32
+        "uid":          decodeInt(rawByteArray[0:2][::-1], True),       # int16
+        "fw":           decodeInt(rawByteArray[2:4][::-1], True),       # int16
+        "rx":           decodeInt(rawByteArray[4:5][::-1], True),       # int8
+        "timeMPU":      decodeInt(rawByteArray[5:9][::-1]),             # int32
         "status":       status,
-        "altitude":     int("".join(rawByteArray[10:13][::-1]), 16),            # int24
-        "speedVert":    int("".join(rawByteArray[13:15][::-1]), 16),            # int16
-        "accel":        int("".join(rawByteArray[15:17][::-1]), 16) / 10,       # int to float
-        "angle":        int("".join(rawByteArray[17:18][::-1]), 16),            # int8
-        "battVoltage":  int("".join(rawByteArray[18:20][::-1]), 16) / 1000,     # mV to V
-        "time":         int("".join(rawByteArray[20:22][::-1]), 16) / 1000,     # ms to s
+        "altitude":     decodeInt(rawByteArray[10:13][::-1], True),     # int24
+        "speedVert":    decodeInt(rawByteArray[13:15][::-1]),           # int16
+        "accel":        decodeInt(rawByteArray[15:17][::-1]) / 10,      # int to float
+        "angle":        decodeInt(rawByteArray[17:18][::-1]),           # int8
+        "battVoltage":  decodeInt(rawByteArray[18:20][::-1]) / 1000,    # mV to V
+        "time":         decodeInt(rawByteArray[20:22][::-1]) / 1000,    # ms to s
         "pyroStates":   pyroStates,
-        "logStatus":    int("".join(rawByteArray[23:24][::-1]), 16),            # int8
-        "gpsLat":       int("".join(rawByteArray[24:28][::-1]), 16) / 1000000,  # int to GPS
-        "gpsLng":       int("".join(rawByteArray[28:32][::-1]), 16) / 1000000,  # int to GPS
-        "gpsState":     int("".join(rawByteArray[32:33][::-1]), 16),            # int8
-        "warnCode":     int("".join(rawByteArray[33:34][::-1]), 16),            # int8
+        "logStatus":    decodeInt(rawByteArray[23:24][::-1]),           # int8
+        "gpsLat":       decodeInt(rawByteArray[24:28][::-1]) / 1000000, # int to GPS
+        "gpsLng":       decodeInt(rawByteArray[28:32][::-1]) / 1000000, # int to GPS
+        "gpsState":     decodeInt(rawByteArray[32:33][::-1]),           # int8
+        "warnCode":     decodeInt(rawByteArray[33:34][::-1]),           # int8
         "message":      message,
         "userIn1":      userIn1,
         "userIn2":      userIn2,
