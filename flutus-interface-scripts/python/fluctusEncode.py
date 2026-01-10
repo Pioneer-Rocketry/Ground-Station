@@ -43,46 +43,68 @@ if __name__ == "__main__":
         total_lines = sum(1 for _ in f)
 
     with open("../exampleFluctusData.csv", "r") as f:
-        for line in tqdm(f, total=total_lines):
-            line = line.strip()
-            if line == "":
-                continue
+        with open("exampleFluctusEncode.txt", "w") as outFile:
+            for line in tqdm(f, total=total_lines):
+                line = line.strip()
+                if line == "":
+                    continue
 
-            # Skip header line
-            if line.startswith("time (ms)"):
-                continue
+                # Skip header line
+                if line.startswith("time (ms)"):
+                    continue
 
-            # Its a CSV with the following fields:
-            # time (ms),deltaTime (ms),status,baro-altitude (m),dedrck-v-speed (m/s),angle (deg),roll-rate (deg/s),vert-accel (m/s2),accel (m/s2),dedrck-alti (m),baro-speed (m/s),amb-temp (deg c),batt-voltage (mV),P1-state,P2-state,P3-state,analog1 (mV),analog2 (mV),inFreefall,gpsLat,gpsLng,gpsAltMSL,gpsState,gpsSats
-            fields = line.split(",")
-            if len(fields) < 22:
-                continue
+                # Its a CSV with the following fields:
+                # time (ms),deltaTime (ms),status,baro-altitude (m),dedrck-v-speed (m/s),angle (deg),roll-rate (deg/s),vert-accel (m/s2),accel (m/s2),dedrck-alti (m),baro-speed (m/s),amb-temp (deg c),batt-voltage (mV),P1-state,P2-state,P3-state,analog1 (mV),analog2 (mV),inFreefall,gpsLat,gpsLng,gpsAltMSL,gpsState,gpsSats
+                fields = line.split(",")
+                if len(fields) < 22:
+                    continue
 
-            uid         = 62
-            fw          = 262
-            timeMPU     = int(fields[0])
-            status      = int(fields[2])
-            altitude    = int(float(fields[3]))
-            speedVert   = int(float(fields[4]) * 100)
-            angle       = int(float(fields[5]))
-            accel       = float(fields[8])
-            battVoltage = float(fields[12]) / 1000.0
-            timeSec     = int(fields[0]) / 1000.0
-            pyroStates  = (int(fields[13]) & 0x01) | ((int(fields[14]) & 0x01) << 1) | ((int(fields[15]) & 0x01) << 2)
-            logStatus   = 0
-            gpsLat      = float(fields[19])
-            gpsLng      = float(fields[20])
-            gpsState    = int(fields[22])
-            warnCode    = 0
-            message     = 0
-            userIn1     = None
-            userIn2     = None
+                uid         = 62
+                fw          = 262
+                timeMPU     = int(fields[0])
+                status      = int(fields[2])
+                altitude    = int(float(fields[3]))
+                speedVert   = int(float(fields[4]) * 100)
+                angle       = int(float(fields[5]))
+                accel       = float(fields[8])
+                battVoltage = float(fields[12]) / 1000.0
+                timeSec     = int(fields[0]) / 1000.0
+                pyroStates  = (int(fields[13]) & 0x01) | ((int(fields[14]) & 0x01) << 1) | ((int(fields[15]) & 0x01) << 2)
+                logStatus   = 0
+                gpsLat      = float(fields[19])
+                gpsLng      = float(fields[20])
+                gpsState    = int(fields[22])
+                warnCode    = 0
+                message     = 0
+                userIn1     = None
+                userIn2     = None
 
-            encoded = dataToEncodedString(uid, fw, 0, timeMPU, status, altitude,
-                                          speedVert, accel, angle, battVoltage, timeSec,
-                                          pyroStates, logStatus, gpsLat, gpsLng, gpsState,
-                                          warnCode, message, userIn1, userIn2, -65, 6)
-            
-            # Save to file
-            with open("exampleFluctusEncode.txt", "a") as outFile:
+                encoded = dataToEncodedString(uid, fw, 0, timeMPU, status, altitude,
+                                            speedVert, accel, angle, battVoltage, timeSec,
+                                            pyroStates, logStatus, gpsLat, gpsLng, gpsState,
+                                            warnCode, message, userIn1, userIn2, -65, 6)
+                
+                # Save to file
                 outFile.write(encoded + "\n")
+
+                # Decode and compare to original values
+                from fluctusDecoder import decodeFluctusData
+                decoded = decodeFluctusData(encoded)
+
+                assert decoded["uid"] == uid
+                assert decoded["fw"] == fw
+                assert decoded["timeMPU"] == timeMPU
+                assert decoded["status"]["raw"] == status
+                assert decoded["altitude"] == altitude
+                assert decoded["speedVert"] == speedVert
+                assert abs(decoded["accel"] - accel) < 0.1
+                assert decoded["angle"] == angle
+                assert abs(decoded["battVoltage"] - battVoltage) < 0.01
+                assert abs(decoded["time"] - timeSec) < 0.1
+                assert decoded["pyroStates"]["raw"] == pyroStates
+                assert decoded["logStatus"] == logStatus
+                assert abs(decoded["gpsLat"] - gpsLat) < 0.0001
+                assert abs(decoded["gpsLng"] - gpsLng) < 0.0001
+                assert decoded["gpsState"] == gpsState
+                assert decoded["warnCode"] == warnCode
+                assert decoded["message"]["raw"] == message

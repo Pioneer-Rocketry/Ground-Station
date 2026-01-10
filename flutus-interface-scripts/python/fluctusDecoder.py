@@ -23,18 +23,21 @@ def decodeFluctusData(inputStr):
 
 
     # Decode Status
-    statusData = int("".join(rawByteArray[9:10][::-1]), 16)
-    status = "Error"
-    if   (statusData == 0): status = "Idle"
-    elif (statusData == 1): status = "Armed"
-    elif (statusData == 2): status = "Countdown Engaged"
-    elif (statusData == 3): status = "Waiting for Launch"
-    elif (statusData == 4): status = "Ascent"
-    elif (statusData == 5): status = "Descent"
-    elif (statusData == 6): status = "Touchdown"
+    statusData = int("".join(rawByteArray[9:10]), 16)
+    status = {
+        "message": "Error",
+        "raw": statusData
+    }
+    if   (statusData == 0): status["message"] = "Idle"
+    elif (statusData == 1): status["message"] = "Armed"
+    elif (statusData == 2): status["message"] = "Countdown Engaged"
+    elif (statusData == 3): status["message"] = "Waiting for Launch"
+    elif (statusData == 4): status["message"] = "Ascent"
+    elif (statusData == 5): status["message"] = "Descent"
+    elif (statusData == 6): status["message"] = "Touchdown"
 
     # Decode Pyro Channel States    
-    pyroData = int("".join(rawByteArray[22:23][::-1]), 16)
+    pyroData = int("".join(rawByteArray[22:23]), 16)
     pyroAStatus = pyroData & 0b00000011
     pyroBStatus = pyroData & 0b00001100
     pyroCStatus = pyroData & 0b00110000
@@ -42,7 +45,8 @@ def decodeFluctusData(inputStr):
     pyroStates = {
         "pyroA": "Error",
         "pyroB": "Error",
-        "pyroC": "Error"
+        "pyroC": "Error",
+        "raw": pyroData
     }
 
     if   (pyroAStatus == 0): pyroStates["pyroA"] = "Disable"
@@ -57,17 +61,13 @@ def decodeFluctusData(inputStr):
     elif (pyroCStatus == 1): pyroStates["pyroC"] = "Continuity"
     elif (pyroCStatus == 3): pyroStates["pyroC"] = "Enabled / Fired"
 
-
-    def decodeInt(arr, signed=False):
-        value = int("".join(arr), 16)
-        if signed and (value & 0x800000) != 0: 
-            return -value
-
-        return value
+    def decodeInt(arr, signed=False, byteorder="little"):
+        raw = bytes.fromhex("".join(arr))
+        return int.from_bytes(raw, byteorder=byteorder, signed=signed)
 
     # Decode Message
     messageType = decodeInt(rawByteArray[34])
-    messageData = decodeInt(rawByteArray[35:38][::-1])
+    messageData = decodeInt(rawByteArray[35:38])
     if messageData & 0x800000: messageData = -messageData
 
     messageTypeStr = "Error"
@@ -76,35 +76,36 @@ def decodeFluctusData(inputStr):
     elif (messageType == 71): messageTypeStr = "Max Acceleration"
 
     message = {
-        messageTypeStr: messageData
+        messageTypeStr: messageData,
+        "raw":decodeInt(rawByteArray[34:38])
     }
 
     userIn1 = None
     userIn2 = None
     if (len(rawByteArray) > 38):
-        userIn1 = int("".join(rawByteArray[38:42][::-1]), 16)
-        userIn2 = int("".join(rawByteArray[42:44][::-1]), 16)
+        userIn1 = int("".join(rawByteArray[38:42]), 16)
+        userIn2 = int("".join(rawByteArray[42:44]), 16)
 
     return {
         "callsign":     callsign,
         "packetType":   packetType,
-        "uid":          decodeInt(rawByteArray[0:2][::-1], True),       # int16
-        "fw":           decodeInt(rawByteArray[2:4][::-1], True),       # int16
-        "rx":           decodeInt(rawByteArray[4:5][::-1], True),       # int8
-        "timeMPU":      decodeInt(rawByteArray[5:9][::-1]),             # int32
+        "uid":          decodeInt(rawByteArray[0:2], True),       # int16
+        "fw":           decodeInt(rawByteArray[2:4], True),       # int16
+        "rx":           decodeInt(rawByteArray[4:5], True),       # int8
+        "timeMPU":      decodeInt(rawByteArray[5:9]),             # int32
         "status":       status,
-        "altitude":     decodeInt(rawByteArray[10:13][::-1], True),     # int24
-        "speedVert":    decodeInt(rawByteArray[13:15][::-1]),           # int16
-        "accel":        decodeInt(rawByteArray[15:17][::-1]) / 10,      # int to float
-        "angle":        decodeInt(rawByteArray[17:18][::-1]),           # int8
-        "battVoltage":  decodeInt(rawByteArray[18:20][::-1]) / 1000,    # mV to V
-        "time":         decodeInt(rawByteArray[20:22][::-1]) / 1000,    # ms to s
+        "altitude":     decodeInt(rawByteArray[10:13], True),     # int24
+        "speedVert":    decodeInt(rawByteArray[13:15]),           # int16
+        "accel":        decodeInt(rawByteArray[15:17]) / 10,      # int to float
+        "angle":        decodeInt(rawByteArray[17:18]),           # int8
+        "battVoltage":  decodeInt(rawByteArray[18:20]) / 1000,    # mV to V
+        "time":         decodeInt(rawByteArray[20:22]) / 10,      # ms to s
         "pyroStates":   pyroStates,
-        "logStatus":    decodeInt(rawByteArray[23:24][::-1]),           # int8
-        "gpsLat":       decodeInt(rawByteArray[24:28][::-1]) / 1000000, # int to GPS
-        "gpsLng":       decodeInt(rawByteArray[28:32][::-1]) / 1000000, # int to GPS
-        "gpsState":     decodeInt(rawByteArray[32:33][::-1]),           # int8
-        "warnCode":     decodeInt(rawByteArray[33:34][::-1]),           # int8
+        "logStatus":    decodeInt(rawByteArray[23:24]),           # int8
+        "gpsLat":       decodeInt(rawByteArray[24:28], True) / 1000000, # int to GPS
+        "gpsLng":       decodeInt(rawByteArray[28:32], True) / 1000000, # int to GPS
+        "gpsState":     decodeInt(rawByteArray[32:33]),           # int8
+        "warnCode":     decodeInt(rawByteArray[33:34]),           # int8
         "message":      message,
         "userIn1":      userIn1,
         "userIn2":      userIn2,
