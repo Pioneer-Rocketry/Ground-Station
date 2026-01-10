@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Fluctus Ground Station</title>
+        <link rel="stylesheet" href="style.css" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+        <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet" />
+        <script src="/socket.io/socket.io.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+    </head>
+    <body>
+        <div class="app-container">
+            <!-- Header -->
+            <header>
+                <div class="logo">
+                    <div class="logo-icon"></div>
+                    <h1>
+                        FLUCTUS
+                        <span class="subtitle">GROUND STATION</span>
+                    </h1>
+                </div>
+                <div class="header-controls">
+                    <!-- Host Controls -->
+                    <button id="btn-connect" class="btn small primary-outline host-only">USB HOST</button>
+                    <button id="btn-simulate" class="btn small secondary-outline host-only">SIMULATE</button>
+
+                    <!-- Client Control -->
+                    <button id="btn-stream" class="btn small accent-outline">VIEW STREAM</button>
+
+                    <div class="status-indicator" id="connection-status">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Disconnected</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main>
+                <!-- Sidebar / Control Panel -->
+                <aside class="control-panel">
+                    <div class="panel-section host-only">
+                        <h2>Mission Control</h2>
+                        <div class="control-group">
+                            <label>Band</label>
+                            <select id="band-select">
+                                <option value="0">902-928 MHz (US)</option>
+                                <option value="1">863-870 MHz (EU)</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label>Channel (00-25)</label>
+                            <input type="number" id="channel-input" value="00" min="0" max="25" />
+                        </div>
+                        <button id="btn-start" class="btn primary">INITIALIZE LINK</button>
+                    </div>
+
+                    <div class="panel-section host-only">
+                        <h2>Commands</h2>
+                        <div class="button-grid">
+                            <button id="btn-ping" class="btn secondary">PING</button>
+                            <button id="btn-arm" class="btn danger">ARM (StartF)</button>
+                        </div>
+                    </div>
+
+                    <div class="panel-section">
+                        <h2>System Log</h2>
+                        <div id="log-container" class="log-box">
+                            <div class="log-entry system">Ready. Select Mode (Host or Viewer).</div>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Dashboard Grid -->
+                <div class="dashboard">
+                    <!-- Top Row: Critical Stats -->
+                    <div class="stat-card large" id="card-altitude">
+                        <h3>Altitude</h3>
+                        <div class="value">
+                            <span id="val-altitude">0</span>
+                            <span class="unit">m</span>
+                        </div>
+                        <div class="label">AGL</div>
+                    </div>
+                    <div class="stat-card large" id="card-speed">
+                        <h3>Vertical Speed</h3>
+                        <div class="value">
+                            <span id="val-speed">0</span>
+                            <span class="unit">m/s</span>
+                        </div>
+                        <div class="label">Ascent Rate</div>
+                    </div>
+                    <div class="stat-card" id="card-status">
+                        <h3>Mission Status</h3>
+                        <div class="value text-value" id="val-status">IDLE</div>
+                    </div>
+
+                    <!-- Middle Row: Secondary Stats -->
+                    <div class="stat-card" id="card-accel">
+                        <h3>Acceleration</h3>
+                        <div class="value">
+                            <span id="val-accel">0.0</span>
+                            <span class="unit">m/s²</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="card-batt">
+                        <h3>Battery</h3>
+                        <div class="value">
+                            <span id="val-batt">0</span>
+                            <span class="unit">mV</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="card-time">
+                        <h3>Flight Time</h3>
+                        <div class="value">
+                            <span id="val-time">0.0</span>
+                            <span class="unit">s</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="card-lat">
+                        <h3>GPS Lat</h3>
+                        <div class="value small" id="val-lat">0.000000</div>
+                    </div>
+                    <div class="stat-card" id="card-lng">
+                        <h3>GPS Lng</h3>
+                        <div class="value small" id="val-lng">0.000000</div>
+                    </div>
+                    <div class="stat-card" id="card-gps-state">
+                        <h3>GPS State</h3>
+                        <div class="value" id="val-gps-state">0</div>
+                    </div>
+
+                    <!-- Bottom Row: Pyro & Warnings -->
+                    <div class="stat-card wide" id="card-pyro">
+                        <h3>Pyrotechnics</h3>
+                        <div class="pyro-grid">
+                            <div class="pyro-item" id="pyro-a">
+                                <span class="pyro-label">A</span>
+                                <span class="pyro-val">UNKNOWN</span>
+                            </div>
+                            <div class="pyro-item" id="pyro-b">
+                                <span class="pyro-label">B</span>
+                                <span class="pyro-val">UNKNOWN</span>
+                            </div>
+                            <div class="pyro-item" id="pyro-c">
+                                <span class="pyro-label">C</span>
+                                <span class="pyro-val">UNKNOWN</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card wide" id="card-msg">
+                        <h3>Rolling Message</h3>
+                        <div class="msg-display">
+                            <span class="msg-type" id="val-msg-type">--</span>
+                            <span class="msg-val" id="val-msg-val">--</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card wide map-card" id="card-map">
+                        <h3>GPS Track</h3>
+                        <div id="map"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+        <!-- Load app as module -->
+        <script type="module" src="app.js"></script>
+    </body>
+</html>
