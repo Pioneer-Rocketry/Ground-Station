@@ -1,6 +1,6 @@
 import { parseTelemetry } from './parser.js';
 import { initMap, updateMapPosition } from './map.js';
-import { initDraggableDashboard } from './dashboard.js';
+import { initDraggableDashboard, resetLayout } from './dashboard.js';
 
 // DOM Elements
 const els = {
@@ -12,6 +12,7 @@ const els = {
     btnConnect: document.getElementById('btn-connect'),
     btnSimulate: document.getElementById('btn-simulate'),
     btnStream: document.getElementById('btn-stream'),
+    btnResetLayout: document.getElementById('btn-reset-layout'),
 
     // Controls
     btnStart: document.getElementById('btn-start'),
@@ -39,6 +40,9 @@ const els = {
     pyroA: document.querySelector('#pyro-a .pyro-val'),
     pyroB: document.querySelector('#pyro-b .pyro-val'),
     pyroC: document.querySelector('#pyro-c .pyro-val'),
+
+    // Gmaps
+    btnGmaps: document.getElementById('btn-gmaps'),
 };
 
 const socket = io();
@@ -51,6 +55,8 @@ let keepReading = false;
 let simulationInterval = null;
 let isHost = false;
 let lastBroadcast = 0;
+let lastLat = 0;
+let lastLng = 0;
 
 // Utils
 function log(msg, type = 'info') {
@@ -322,6 +328,8 @@ function updateDashboard(data) {
 
     // Update Map
     if (data.gpsLat && data.gpsLng && (data.gpsLat !== 0 || data.gpsLng !== 0)) {
+        lastLat = data.gpsLat;
+        lastLng = data.gpsLng;
         updateMapPosition(data.gpsLat, data.gpsLng);
     }
 
@@ -359,6 +367,7 @@ function updatePyro(el, state) {
 els.btnConnect.addEventListener('click', connectSerial);
 els.btnSimulate.addEventListener('click', startSimulation);
 els.btnStream.addEventListener('click', toggleStream);
+els.btnResetLayout.addEventListener('click', resetLayout);
 
 els.btnPing.addEventListener('click', () => {
     sendCommand('ping');
@@ -377,6 +386,16 @@ els.btnStart.addEventListener('click', () => {
     const cmd = `start${band}${chan}Fluctus`;
     sendCommand(cmd);
 });
+
+if (els.btnGmaps) {
+    els.btnGmaps.addEventListener('click', () => {
+        if (lastLat !== 0 && lastLng !== 0) {
+            window.open(`https://www.google.com/maps?q=${lastLat},${lastLng}`, '_blank');
+        } else {
+            alert('No valid GPS fix yet.');
+        }
+    });
+}
 
 // Initial State
 resetDashboard();
