@@ -140,8 +140,8 @@ function decodeFluctusData(inputStr) {
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { decodeFluctusData };
+} else {
+    // Example usage
+    const decodedData = decodeFluctusData(dataString);
+    console.log(decodedData);
 }
-
-// Example usage
-const decodedData = decodeFluctusData(dataString);
-console.log(decodedData);
