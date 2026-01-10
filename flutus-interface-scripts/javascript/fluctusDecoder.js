@@ -19,18 +19,21 @@ function decodeFluctusData(inputStr) {
     }
 
     // Decode Status
-    const statusData = parseInt(rawByteArray.slice(9, 10).reverse().join(""), 16);
-    let status = "Error";
-    if      (statusData === 0) status = "Idle";
-    else if (statusData === 1) status = "Armed";
-    else if (statusData === 2) status = "Countdown Engaged";
-    else if (statusData === 3) status = "Waiting for Launch";
-    else if (statusData === 4) status = "Ascent";
-    else if (statusData === 5) status = "Descent";
-    else if (statusData === 6) status = "Touchdown";
+    const statusData = parseInt(rawByteArray.slice(9, 10).join(""), 16);
+    const status = {
+        message: "Error",
+        raw: statusData
+    };
+    if      (statusData === 0) status.message = "Idle";
+    else if (statusData === 1) status.message = "Armed";
+    else if (statusData === 2) status.message = "Countdown Engaged";
+    else if (statusData === 3) status.message = "Waiting for Launch";
+    else if (statusData === 4) status.message = "Ascent";
+    else if (statusData === 5) status.message = "Descent";
+    else if (statusData === 6) status.message = "Touchdown";
 
     // Decode Pyro Channel States
-    const pyroData = parseInt(rawByteArray.slice(22, 23).reverse().join(""), 16);
+    const pyroData = parseInt(rawByteArray.slice(22, 23).join(""), 16);
     const pyroAStatus = pyroData & 0b00000011;
     const pyroBStatus = pyroData & 0b00001100;
     const pyroCStatus = pyroData & 0b00110000;
@@ -38,7 +41,8 @@ function decodeFluctusData(inputStr) {
     const pyroStates = {
         pyroA: "Error",
         pyroB: "Error",
-        pyroC: "Error"
+        pyroC: "Error",
+        raw: pyroData
     };
 
     if      (pyroAStatus === 0) pyroStates.pyroA = "Disable";
@@ -53,17 +57,36 @@ function decodeFluctusData(inputStr) {
     else if (pyroCStatus === 1) pyroStates.pyroC = "Continuity";
     else if (pyroCStatus === 3) pyroStates.pyroC = "Enabled / Fired";
 
-    function decodeInt(arr, signed = false) {
-        let value = parseInt(arr.join(""), 16);
-        if (signed && (value & 0x800000) !== 0) {
-            return -value;
+    function decodeInt(arr, signed = false, byteorder = "little") {
+        const hexStr = arr.join("");
+        const bytes = [];
+        for (let i = 0; i < hexStr.length; i += 2) {
+            bytes.push(parseInt(hexStr.substr(i, 2), 16));
         }
+        
+        if (byteorder === "big") {
+            bytes.reverse();
+        }
+        
+        let value = 0;
+        for (let i = 0; i < bytes.length; i++) {
+            value |= bytes[i] << (8 * i);
+        }
+        
+        if (signed) {
+            const bits = bytes.length * 8;
+            const max = Math.pow(2, bits);
+            if (value >= max / 2) {
+                value -= max;
+            }
+        }
+        
         return value;
     }
 
     // Decode Message
     const messageType = decodeInt(rawByteArray.slice(34, 35));
-    let messageData = decodeInt(rawByteArray.slice(35, 38).reverse());
+    let messageData = decodeInt(rawByteArray.slice(35, 38));
     if (messageData & 0x800000) messageData = -messageData;
 
     let messageTypeStr = "Error";
@@ -72,7 +95,8 @@ function decodeFluctusData(inputStr) {
     else if (messageType === 71) messageTypeStr = "Max Acceleration";
 
     const message = {
-        [messageTypeStr]: messageData
+        [messageTypeStr]: messageData,
+        raw: decodeInt(rawByteArray.slice(34, 38))
     };
 
     let userIn1 = null;
@@ -88,29 +112,34 @@ function decodeFluctusData(inputStr) {
     return {
         callsign:     callsign,
         packetType:   packetType,
-        uid:          decodeInt(rawByteArray.slice(0, 2).reverse(), true),        // int16
-        fw:           decodeInt(rawByteArray.slice(2, 4).reverse(), true),        // int16
-        rx:           decodeInt(rawByteArray.slice(4, 5).reverse(), true),        // int8
-        timeMPU:      decodeInt(rawByteArray.slice(5, 9).reverse()),              // int32
+        uid:          decodeInt(rawByteArray.slice(0, 2), true),        // int16
+        fw:           decodeInt(rawByteArray.slice(2, 4), true),        // int16
+        rx:           decodeInt(rawByteArray.slice(4, 5), true),        // int8
+        timeMPU:      decodeInt(rawByteArray.slice(5, 9)),              // int32
         status:       status,
-        altitude:     decodeInt(rawByteArray.slice(10, 13).reverse(), true),      // int24
-        speedVert:    decodeInt(rawByteArray.slice(13, 15).reverse()),            // int16
-        accel:        decodeInt(rawByteArray.slice(15, 17).reverse()) / 10,       // int to float
-        angle:        decodeInt(rawByteArray.slice(17, 18).reverse()),            // int8
-        battVoltage:  decodeInt(rawByteArray.slice(18, 20).reverse()) / 1000,     // mV to V
-        time:         decodeInt(rawByteArray.slice(20, 22).reverse()) / 1000,     // ms to s
+        altitude:     decodeInt(rawByteArray.slice(10, 13), true),      // int24
+        speedVert:    decodeInt(rawByteArray.slice(13, 15)),            // int16
+        accel:        decodeInt(rawByteArray.slice(15, 17)) / 10,       // int to float
+        angle:        decodeInt(rawByteArray.slice(17, 18)),            // int8
+        battVoltage:  decodeInt(rawByteArray.slice(18, 20)) / 1000,     // mV to V
+        time:         decodeInt(rawByteArray.slice(20, 22)) / 10,       // ms to s
         pyroStates:   pyroStates,
-        logStatus:    decodeInt(rawByteArray.slice(23, 24).reverse()),            // int8
-        gpsLat:       decodeInt(rawByteArray.slice(24, 28).reverse()) / 1000000,  // int to GPS
-        gpsLng:       decodeInt(rawByteArray.slice(28, 32).reverse()) / 1000000,  // int to GPS
-        gpsState:     decodeInt(rawByteArray.slice(32, 33).reverse()),            // int8
-        warnCode:     decodeInt(rawByteArray.slice(33, 34).reverse()),            // int8
+        logStatus:    decodeInt(rawByteArray.slice(23, 24)),            // int8
+        gpsLat:       decodeInt(rawByteArray.slice(24, 28), true) / 1000000,  // int to GPS
+        gpsLng:       decodeInt(rawByteArray.slice(28, 32), true) / 1000000,  // int to GPS
+        gpsState:     decodeInt(rawByteArray.slice(32, 33)),            // int8
+        warnCode:     decodeInt(rawByteArray.slice(33, 34)),            // int8
         message:      message,
         userIn1:      userIn1,
         userIn2:      userIn2,
         rssi:         rssiMatch ? rssiMatch[1] : null,
         snr:          snrMatch ? snrMatch[1] : null,
     };
+}
+
+// Export for use in other modules
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { decodeFluctusData };
 }
 
 // Example usage
