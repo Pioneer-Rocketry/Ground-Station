@@ -1,0 +1,47 @@
+name: Build Web Interface
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./web-interface
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: web-interface/package-lock.json
+
+    - name: Install Client Dependencies
+      run: npm ci
+
+    - name: Build React Client
+      run: npm run build
+
+    - name: Prepare Artifact
+      run: |
+        mkdir -p dist-package
+        cp server.js dist-package/
+        cp package.json dist-package/
+        cp -r dist dist-package/
+        # Create a simple start script or readme if needed
+        echo "Run 'npm run build' then 'node server.js' to start." > dist-package/README.txt
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: web-interface-build
+        path: web-interface/dist-package/

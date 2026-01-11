@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    color-scheme: dark;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #111;
+    color: #fff;
+}
+
+@layer components {
+    .sortable-chosen-highlight {
+        @apply brightness-125 ring-2 ring-accent-primary/50;
+    }
+    .sortable-drag-active {
+        @apply cursor-grabbing opacity-50;
+    }
+    .sortable-ghost-highlight {
+        @apply opacity-20 bg-gray-700;
+    }
+}

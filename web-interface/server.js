@@ -1,6 +1,12 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
@@ -9,9 +15,26 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 
 // Serve static files
-app.use(express.static('public'));
+import path from 'path';
 
-// State to track if a host is active
+// Serve static files (in production, this contains the built React app)
+app.use(express.static('dist'));
+
+// Handle SPA routing: serve index.html for all other routes
+app.get('*', (req, res) => {
+    // Only serve index.html if we are not handling an API/socket request
+    // and if the file actually exists (prod mode)
+    // For now, minimal check:
+    if (req.url.startsWith('/socket.io/')) return;
+
+    const indexFile = path.resolve(__dirname, 'dist', 'index.html');
+    res.sendFile(indexFile, (err) => {
+        if (err) {
+            // In dev mode (public/index.html doesn't exist), just 404
+            res.status(404).send("Not found (if in dev, use Vite server)");
+        }
+    });
+});
 let activeHostId = null;
 let lastHeartbeat = 0;
 
@@ -20,13 +43,15 @@ io.on('connection', (socket) => {
 
     // Client wants to view stream
     socket.on('join_stream', () => {
+        socket.join('viewers');
+
         const now = Date.now();
-        // Check if host is alive (heartbeat within 3 seconds)
-        if (activeHostId && (now - lastHeartbeat < 3000)) {
-            socket.join('viewers');
+        const isHostActive = activeHostId && (now - lastHeartbeat < 3000);
+
+        if (isHostActive) {
             socket.emit('stream_status', { active: true, msg: 'Joined stream' });
         } else {
-            socket.emit('stream_status', { active: false, msg: 'No active stream found' });
+            socket.emit('stream_status', { active: false, msg: 'Waiting for host...' });
         }
     });
 
