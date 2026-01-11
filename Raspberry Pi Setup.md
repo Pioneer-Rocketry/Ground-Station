@@ -23,9 +23,14 @@ $ sudo raspi-config
 edit `/etc/mosquitto/conf.d/default.conf`
 
 ```
-listener 1883
+# TCP (debug / tools)
+listener 1882
 protocol mqtt
+allow_anonymous true
 
+# WebSockets (apps / browsers)
+listener 1883
+protocol websockets
 allow_anonymous true
 password_file /etc/mosquitto/passwd
 acl_file /etc/mosquitto/acl

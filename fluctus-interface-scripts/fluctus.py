@@ -15,7 +15,7 @@ def on_connect(client, userdata, flags, rc):
     else:       print(f"Failed to connect, rc={rc}")
 
 if __name__ == "__main__":
-    client = mqtt.Client(client_id="fluctus_telemetry")
+    client = mqtt.Client(client_id="fluctus_telemetry", transport="websockets")
     client.on_connect = on_connect
     client.username_pw_set(os.getenv("USERNAME"), os.getenv("PASSWORD"))
     client.connect(os.getenv("MQTT_BROKER"), int(os.getenv("MQTT_PORT")), keepalive=60)
