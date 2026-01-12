@@ -41,10 +41,12 @@ edit `/etc/mosquitto/passwd`
 ```
 # Anonymous users: READ ONLY
 pattern read telemetry/#
+pattern write telemetry/+/control
 
 # Authenticated writer user
 user device
 topic write telemetry/#
+topic read telemetry/#
 ```
 This allow anonymous listening, but requires a login to publish to the telemetry thread
 
