@@ -27,6 +27,20 @@ export function TelemetryProvider({ children }) {
     const [isHost, setIsHost] = useState(false);
     const [isViewing, setIsViewing] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState('Disconnected');
+    // Track source of each data field: 'serial', 'mqtt', or undefined/default
+    const [sources, setSources] = useState({});
+
+    const setSource = (key, source) => {
+        setSources((prev) => ({ ...prev, [key]: source }));
+    };
+
+    const updateSources = (newSources) => {
+        setSources((prev) => ({ ...prev, ...newSources }));
+    };
+
+    const clearSources = () => {
+        setSources({});
+    };
 
     const addLog = (msg, type = 'info') => {
         const time = new Date().toLocaleTimeString().split(' ')[0];
@@ -116,6 +130,10 @@ export function TelemetryProvider({ children }) {
                 setIsViewing,
                 connectionStatus,
                 setConnectionStatus,
+                sources,
+                setSource,
+                updateSources,
+                clearSources,
             }}>
             {children}
         </TelemetryContext.Provider>

@@ -23,7 +23,7 @@ const DEFAULT_WIDGETS = [
 ];
 
 export function Dashboard() {
-    const { data } = useTelemetry();
+    const { data, sources } = useTelemetry();
     const [widgets, setWidgets] = useState([]);
     const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth <= 700);
 
@@ -88,13 +88,30 @@ export function Dashboard() {
                 if (widget.id === 'gps_lat') value = data.gpsLat.toFixed(isSmallScreen ? 4 : 6);
                 if (widget.id === 'gps_lng') value = data.gpsLng.toFixed(isSmallScreen ? 4 : 6);
 
-                return <StatCard label={widget.label} value={value} unit={widget.unit} subLabel={widget.subLabel} className="h-full" />;
+                // Determine source key based on widget logic
+                let sourceKey = widget.id;
+                if (widget.id === 'speed') sourceKey = 'speedVert';
+                if (widget.id === 'battery') sourceKey = 'battVoltage';
+                if (widget.id === 'flight_time') sourceKey = 'flightTime'; // note camcelCase match check
+                if (widget.id === 'gps_lat') sourceKey = 'gpsLat';
+                if (widget.id === 'gps_lng') sourceKey = 'gpsLng';
+                if (widget.id === 'gps_state') sourceKey = 'gpsState';
+
+                return <StatCard label={widget.label} value={value} unit={widget.unit} subLabel={widget.subLabel} className="h-full" isMQTT={sources[sourceKey] === 'mqtt'} />;
 
             case 'mission_status':
-                return <StatCard label="Mission Status" value={data.status} valueColor={data.statusCode >= 4 ? 'text-accent-primary' : data.statusCode >= 1 ? 'text-accent-warn' : 'text-white'} className="h-full" />;
+                return (
+                    <StatCard
+                        label="Mission Status"
+                        value={data.status}
+                        valueColor={data.statusCode >= 4 ? 'text-accent-primary' : data.statusCode >= 1 ? 'text-accent-warn' : 'text-white'}
+                        className="h-full"
+                        isMQTT={sources['status'] === 'mqtt' || sources['statusCode'] === 'mqtt'}
+                    />
+                );
 
             case 'pyro':
-                return <PyroWidget className="h-full" />;
+                return <PyroWidget className="h-full" isMQTT={sources['pyro'] === 'mqtt'} />;
 
             case 'message':
                 return <MessageWidget className="h-full" />;

@@ -7,11 +7,17 @@ import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 
 import { useSimulation } from './hooks/useSimulation';
+import { useMQTT } from './hooks/useMQTT';
+import { MQTTModal } from './components/MQTTModal';
+import { useState } from 'react';
 
 function AppContent() {
     const { connectSerial, sendCommand } = useSerial();
     const { startSimulation, isSimulating } = useSimulation();
     const { setIsViewing, isViewing, setIsHost } = useTelemetry();
+    const { connectMQTT, disconnectMQTT, mqttStatus } = useMQTT();
+    const [isMQTTModalOpen, setMQTTModalOpen] = useState(false);
+    const [isSidebarOpen, setSidebarOpen] = useState(false);
 
     // Logic for toggling stream vs serial is handled in hooks/contexts mostly,
     // but the buttons trigger these actions.
@@ -39,7 +45,12 @@ function AppContent() {
 
     return (
         <div className="flex h-screen w-screen bg-bg-dark text-white overflow-hidden font-sans">
+            {/* Mobile Backdrop */}
+            {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />}
+
             <Sidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setSidebarOpen(false)}
                 onCommand={sendCommand}
                 onResetLayout={() => {
                     if (confirm('Reset dashboard layout to default?')) {
@@ -49,9 +60,10 @@ function AppContent() {
                 }}
             />
             <div className="flex flex-col flex-1 min-w-0">
-                <Header onConnectSerial={connectSerial} onSimulate={handleSimulate} onToggleStream={handleToggleStream} />
+                <Header onConnectSerial={connectSerial} onSimulate={handleSimulate} onToggleStream={handleToggleStream} onOpenMQTT={() => setMQTTModalOpen(true)} mqttStatus={mqttStatus} onDisconnectMQTT={disconnectMQTT} onToggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
                 <Dashboard />
             </div>
+            <MQTTModal isOpen={isMQTTModalOpen} onClose={() => setMQTTModalOpen(false)} onConnect={connectMQTT} />
         </div>
     );
 }

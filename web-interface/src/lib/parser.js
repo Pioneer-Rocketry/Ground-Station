@@ -156,7 +156,7 @@ export function parseTelemetry(line) {
   }
 }
 
-function getStatusString(code) {
+export function getStatusString(code) {
     const states = [
         "IDLE", "ARMED", "COUNTDOWN ENGAGED", "WAITING FOR LAUNCH",
         "ASCENT", "DESCENT", "TOUCHDOWN"
@@ -164,7 +164,7 @@ function getStatusString(code) {
     return states[code] || "UNKNOWN";
 }
 
-function decodePyro(byte) {
+export function decodePyro(byte) {
     const decode = (val) => {
         if(val === 0) return 'DISABLED';
         if(val === 1) return 'CONTINUITY';
