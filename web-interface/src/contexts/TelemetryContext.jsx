@@ -23,6 +23,7 @@ const INITIAL_DATA = {
 export function TelemetryProvider({ children }) {
     const { socket } = useSocket();
     const [data, setData] = useState(INITIAL_DATA);
+    const [gpsPath, setGpsPath] = useState([]); // Store [lng, lat] history
     const [logs, setLogs] = useState([]);
     const [isHost, setIsHost] = useState(false);
     const [isViewing, setIsViewing] = useState(false);
@@ -117,11 +118,24 @@ export function TelemetryProvider({ children }) {
         };
     }, [socket, isHost, isViewing]);
 
+    // Track GPS Path
+    useEffect(() => {
+        const { gpsLat, gpsLng } = data;
+        if (gpsLat !== 0 || gpsLng !== 0) {
+            setGpsPath((prev) => {
+                const last = prev[prev.length - 1];
+                if (last && last[0] === gpsLng && last[1] === gpsLat) return prev; // No change
+                return [...prev, [gpsLng, gpsLat]];
+            });
+        }
+    }, [data.gpsLat, data.gpsLng]);
+
     return (
         <TelemetryContext.Provider
             value={{
                 data,
                 setData,
+                gpsPath,
                 logs,
                 addLog,
                 isHost,

@@ -47,10 +47,11 @@ const SIMPLE_STYLE = {
 export function MapWidget({ className }) {
     const mapContainer = useRef(null);
     const map = useRef(null);
-    const marker = useRef(null);
     const coordsRef = useRef([0, 0]); // Store latest for event handlers
-    const { data } = useTelemetry();
+    const { data, gpsPath } = useTelemetry();
     const { gpsLat, gpsLng } = data;
+    const startMarker = useRef(null);
+    const currentMarker = useRef(null);
 
     // Update ref when data changes
     useEffect(() => {
@@ -91,16 +92,69 @@ export function MapWidget({ className }) {
             }
         });
 
-        // Create marker
-        const el = document.createElement('div');
-        el.className = 'w-4 h-4 rounded-full bg-accent-primary border-2 border-white shadow-lg';
+        map.current.on('load', () => {
+            // Add Line Source
+            map.current.addSource('gps-trace', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: [],
+                    },
+                },
+            });
 
-        marker.current = new maplibregl.Marker({ element: el }).setLngLat([-90.48, 42.7329]).addTo(map.current);
+            // Add Line Layer (bottom most)
+            map.current.addLayer(
+                {
+                    id: 'gps-trace-line',
+                    type: 'line',
+                    source: 'gps-trace',
+                    layout: {
+                        'line-join': 'round',
+                        'line-cap': 'round',
+                    },
+                    paint: {
+                        'line-color': '#ffff00', // Yellow/Gold for visibility or adjust as requested
+                        'line-width': 4,
+                    },
+                },
+                'water'
+            ); // Place before water if possible, or usually just add first. 'background' is bottom.
+            // Actually 'water' is usually above background. Let's try to put it right above background if possible or just use beforeId if we knew one.
+            // Given the SIMPLE_STYLE, layers are: background, water, road_major, boundary.
+            // We want it at the bottom-most layer that makes sense. Maybe above water?
+            // Actually user said "bottom most layer". So maybe before 'road_major'?
+            map.current.moveLayer('gps-trace-line', 'road_major');
+        });
+
+        // Create Start Marker (Green Teardrop)
+        const startEl = document.createElement('div');
+        startEl.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="#22c55e" stroke="white" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>`;
+        startEl.className = 'w-6 h-6 -translate-x-1/2 -translate-y-full'; // Adjust anchor if needed, but MapLibre handles simple offsets.
+        // Actually maplibre markers center by default? No, anchor is center.
+        // Upside down teardrop usually points down. The SVG path above is a standard pin pointing down.
+        // Wait, "upside down" might mean pointing UP? A standard map pin points DOWN.
+        // "Teardrop upside down" -> Standard pins look like upside down teardrops. I will assume they mean a standard pin.
+        // If they strictly mean the shape is inverted (point up), I'd rotate it.
+        // "green teardrom upside down for the staring point" -> standard pin.
+
+        startMarker.current = new maplibregl.Marker({ element: startEl, anchor: 'bottom' });
+
+        // Create Current Marker (Blue Triangle with Outline)
+        const currentEl = document.createElement('div');
+        currentEl.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="#3b82f6" stroke="white" stroke-width="2"><path d="M12 2L2 22h20L12 2z"/></svg>`;
+        currentEl.className = 'w-6 h-6';
+
+        currentMarker.current = new maplibregl.Marker({ element: currentEl, anchor: 'center' });
 
         return () => {
             map.current?.remove();
             map.current = null;
-            marker.current = null;
+            startMarker.current = null;
+            currentMarker.current = null;
         };
     }, []);
 
@@ -135,17 +189,37 @@ export function MapWidget({ className }) {
     }, []);
 
     useEffect(() => {
-        if (!map.current || !marker.current) return;
-        if (gpsLat === 0 && gpsLng === 0) return;
+        if (!map.current || !startMarker.current || !currentMarker.current) return;
 
-        const ll = [gpsLng, gpsLat];
-        marker.current.setLngLat(ll);
-
-        // Auto-pan if no interaction in last 4 seconds
-        if (Date.now() - lastInteraction.current > 4000) {
-            map.current.panTo(ll);
+        // Update Path
+        if (map.current.getSource('gps-trace')) {
+            map.current.getSource('gps-trace').setData({
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                    type: 'LineString',
+                    coordinates: gpsPath,
+                },
+            });
         }
-    }, [gpsLat, gpsLng]);
+
+        // Update Start Marker
+        if (gpsPath.length > 0) {
+            const start = gpsPath[0];
+            startMarker.current.setLngLat(start).addTo(map.current);
+        }
+
+        // Update Current Marker
+        if (gpsLat !== 0 || gpsLng !== 0) {
+            const ll = [gpsLng, gpsLat];
+            currentMarker.current.setLngLat(ll).addTo(map.current);
+
+            // Auto-pan if no interaction in last 4 seconds
+            if (Date.now() - lastInteraction.current > 4000) {
+                map.current.panTo(ll);
+            }
+        }
+    }, [gpsPath, gpsLat, gpsLng]);
 
     return (
         <div className={className}>

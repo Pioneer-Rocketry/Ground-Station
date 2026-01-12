@@ -22,12 +22,21 @@ export function useSimulation() {
         let time = 0;
         let alt = 0;
         let speed = 0;
+        let lat = 42.7329;
+        let lng = -90.48;
+        let heading = 0; // Radians
 
         intervalRef.current = setInterval(() => {
             if (time < 100) { alt += 5; speed = 5; }
             else if (time < 200) { alt += 50; speed = 50; }
             else { alt -= 10; speed = -10; if (alt < 0) alt = 0; }
             time += 0.5;
+
+            // Update GPS with random turns
+            heading += (Math.random() - 0.5) * 0.2; // Random small turn
+            const moveSpeed = 0.00005;
+            lat += Math.cos(heading) * moveSpeed;
+            lng += Math.sin(heading) * moveSpeed;
 
             const data = {
                 type: 'telemetry',
@@ -38,8 +47,8 @@ export function useSimulation() {
                 statusCode: time > 10 ? 4 : 1,
                 battVoltage: 8200,
                 flightTime: time,
-                gpsLat: 36.6658 + (time * 0.00001), 
-                gpsLng: -95.5371, // Tulsa-ish
+                gpsLat: lat,
+                gpsLng: lng,
                 gpsState: 3,
                 pyro: { A: 'CONTINUITY', B: 'DISABLED', C: 'UNKNOWN' },
                 message: { id: 'A', value: 1234, decodedValue: 1234 }
