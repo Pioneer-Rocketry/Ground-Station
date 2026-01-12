@@ -55,7 +55,7 @@ export function Sidebar({ onCommand, onResetLayout, isOpen, onClose }) {
                     </button>
                     <button
                         onClick={() => {
-                            if (confirm('ARM ROCKET?')) onCommand('startf');
+                            if (confirm('ARM ROCKET?')) onCommand('arm');
                         }}
                         className="bg-red-900/30 border border-red-900/50 hover:bg-red-900/50 text-red-500 py-2 rounded text-sm font-bold transition-colors">
                         ARM

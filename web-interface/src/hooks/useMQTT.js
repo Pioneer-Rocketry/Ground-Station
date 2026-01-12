@@ -9,12 +9,16 @@ export function useMQTT() {
     const [client, setClient] = useState(null);
     const [status, setStatus] = useState('Disconnected');
 
+    const [baseTopic, setTopic] = useState(null);
+
     const connectMQTT = (url, username, password, topic) => {
         setConnectionStatus('Connecting MQTT...');
         addLog(`Connecting to MQTT broker at ${url} on topic ${topic}...`);
 
         // Force WS protocol if not specified, since browser can only do WS/WSS
         // But users might verify "ws://..."
+
+        setTopic(topic.replace('/#', ''));
 
         const options = {
             username,
@@ -23,6 +27,8 @@ export function useMQTT() {
             connectTimeout: 4000,
             reconnectPeriod: 1000,
         };
+
+        console.log(options);
 
         try {
             const mqttClient = mqtt.connect(url, options);
@@ -187,6 +193,10 @@ export function useMQTT() {
         }
     };
 
+    const sendMQTTCommand = (command) => {
+        client.publish(`${baseTopic}/control`, command);
+    }
+
     // Auto cleanup
     useEffect(() => {
         return () => {
@@ -197,5 +207,5 @@ export function useMQTT() {
         };
     }, [client]);
 
-    return { connectMQTT, disconnectMQTT, mqttStatus: status };
+    return { connectMQTT, disconnectMQTT, sendMQTTCommand, mqttStatus: status };
 }

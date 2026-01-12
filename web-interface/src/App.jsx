@@ -15,7 +15,7 @@ function AppContent() {
     const { connectSerial, sendCommand } = useSerial();
     const { startSimulation, isSimulating } = useSimulation();
     const { setIsViewing, isViewing, setIsHost } = useTelemetry();
-    const { connectMQTT, disconnectMQTT, mqttStatus } = useMQTT();
+    const { connectMQTT, disconnectMQTT, sendMQTTCommand, mqttStatus } = useMQTT();
     const [isMQTTModalOpen, setMQTTModalOpen] = useState(false);
     const [isSidebarOpen, setSidebarOpen] = useState(false);
 
@@ -51,7 +51,7 @@ function AppContent() {
             <Sidebar
                 isOpen={isSidebarOpen}
                 onClose={() => setSidebarOpen(false)}
-                onCommand={sendCommand}
+                onCommand={sendMQTTCommand}
                 onResetLayout={() => {
                     if (confirm('Reset dashboard layout to default?')) {
                         localStorage.removeItem('dashboard_layout_v2');
