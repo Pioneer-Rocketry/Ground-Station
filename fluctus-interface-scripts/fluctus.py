@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
                 client.publish(f"{MQTT_TOPIC}{key}", value)
                 print(f"{MQTT_TOPIC}{key} -> {value}")
-            time.sleep(1)
+            time.sleep(1/50)
 
         file.close()
 
