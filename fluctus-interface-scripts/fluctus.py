@@ -2,6 +2,7 @@ import paho.mqtt.client as mqtt
 import serial
 import time
 import ssl
+import re
 
 import os
 from dotenv import load_dotenv
@@ -15,15 +16,21 @@ def on_connect(client, userdata, flags, rc):
     if rc == 0: print("Connected to MQTT broker")
     else:       print(f"Failed to connect, rc={rc}")
 
+HARDWARE = False
+
 init = False
+command = None
+
+startRegex = re.compile('start\d\d\d[A-Za-z]{7}')
 
 def on_message(client, userdata, msg):
-    global init
+    global init, command
 
     payload = msg.payload.decode()
     print(f"{msg.topic} - {payload}")
 
-    if "start" in payload:
+    if startRegex.match(payload):
+        command = startRegex.search(payload)[0]
         init = True
 
     elif "arm" in payload:
@@ -44,30 +51,50 @@ if __name__ == "__main__":
     client.subscribe(f"{MQTT_TOPIC}/control")
     print(f"{MQTT_TOPIC}/control")
 
-    # ser = serial.Serial('/dev/ttyUSB0', 9600, timeout=1)
-    # while ser.is_open:
+    if HARDWARE:
+        # Open example file for testing
+        while True:
+            if init:
+                file = open("exampleFluctusEncode.txt", "r")
+                # Read a line
+                for line in file:
+                    # Decode it
+                    decoded_data = decodeFluctusData(line)
 
-    # Open example file for testing
-    while True:
-        if init:
-            file = open("exampleFluctusEncode.txt", "r")
-            # Read a line
-            # line = ser.readline().decode('utf-8').strip()
-            for line in file:
-            # if line:
-                # Decode it
-                decoded_data = decodeFluctusData(line)
+                    if decoded_data is not None:
+                        # Send each field as a separate MQTT thread
+                        for key, value in decoded_data.items():
+                            if key == "status" or key == "pyroStates" or key == "message":
+                                value = value["raw"]
+
+                            client.publish(f"{MQTT_TOPIC}/{key}", value)
+                        time.sleep(1/50)
+                        
+                    if command is not None:
+                        print(command)
+
+                file.close()
+                init = False
+
+    else:
+        ser = serial.Serial('/dev/ttyACM3', 9600, timeout=1)
+        while ser.is_open:
+            line = ser.readline().decode('utf-8').strip()
+            print(line)
+            decoded_data = decodeFluctusData(line)
+
+            if decoded_data is not None:            
                 # Send each field as a separate MQTT thread
                 for key, value in decoded_data.items():
                     if key == "status" or key == "pyroStates" or key == "message":
                         value = value["raw"]
 
                     client.publish(f"{MQTT_TOPIC}/{key}", value)
-                    # print(f"{MQTT_TOPIC}{key} -> {value}")
-                time.sleep(1/50)
 
-            file.close()
-            init = False
+            if command is not None:
+                ser.write((command + "\n").encode())
+                command = None
+
 
     client.loop_stop()
     client.disconnect()

@@ -8,6 +8,8 @@ import re
 dataString = "FB3E00070100BEDD01000000000000006C00AA89109CFF00650000000000000000000E53000000|Grssi-65/Gsnr6"
 
 def decodeFluctusData(inputStr):
+    if (not re.match('FB[a-zA-Z0-9]*\|Grssi-?\d*/Gsnr-?\d*', inputStr)): return None
+
     data, diagnostics = inputStr.split("|")
 
     callsign    = data[0]
