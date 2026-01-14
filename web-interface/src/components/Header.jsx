@@ -24,9 +24,8 @@ export function Header({ onConnectSerial, onSimulate, onToggleStream, onOpenMQTT
                     <Menu size={24} />
                 </button>
                 <img src={favicon} alt="Logo" className="w-8 h-8 rounded-lg" />
-                <div className="flex flex-col">
-                    <h1 className="text-xl font-bold tracking-tight leading-none text-white">FLUCTUS</h1>
-                    <span className="text-[10px] font-mono text-accent-primary tracking-[0.2em] uppercase">Ground Station</span>
+                <div className="flex flex-col justify-center h-full">
+                    <h1 className="text-lg font-bold tracking-[0.1em] text-white uppercase">Ground Station</h1>
                 </div>
             </div>
 
@@ -56,11 +55,11 @@ export function Header({ onConnectSerial, onSimulate, onToggleStream, onOpenMQTT
                 {/* Status Indicator (Always Visible) */}
                 <div className="flex items-center gap-2 px-3 py-1 bg-black/30 rounded-full border border-white/10 shrink-0">
                     <div className={`w-2 h-2 rounded-full ${connectionStatus === 'Disconnected' ? 'bg-red-500' : 'bg-green-500 animate-pulse'}`} />
-                    <span className="whitespace-nowrap text-xs font-mono font-bold text-gray-300">{connectionStatus.toUpperCase()}</span>
+                    <span className="hidden md:block whitespace-nowrap text-xs font-mono font-bold text-gray-300">{connectionStatus.toUpperCase()}</span>
                     {!socketConnected && <span className="hidden sm:inline whitespace-nowrap text-[10px] text-red-500">(Socket Offline)</span>}
                 </div>
 
-                <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-text-muted hover:text-white p-1">
+                <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-text-muted hover:text-white p-1 shrink-0">
                     <MoreVertical size={24} />
                 </button>
             </div>

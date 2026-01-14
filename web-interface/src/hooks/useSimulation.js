@@ -25,16 +25,48 @@ export function useSimulation() {
         let lat = 42.7329;
         let lng = -90.48;
         let heading = 0; // Radians
+        let engine_accel = 0;
+        let accel = 0;
+
+        let step = 0;
 
         intervalRef.current = setInterval(() => {
-            if (time < 100) { alt += 5; speed = 5; }
-            else if (time < 200) { alt += 50; speed = 50; }
-            else { alt -= 10; speed = -10; if (alt < 0) alt = 0; }
-            time += 0.5;
+            step++;
 
-            // Update GPS with random turns
-            heading += (Math.random() - 0.5) * 0.2; // Random small turn
-            const moveSpeed = 0.00005;
+            // Simulating a flight profile:
+            // 0-100: Launch & Ascent (High accel, increasing alt)
+            // 100-200: Coast (Negative accel/gravity, slower ascent)
+            // 200+: Descent (Negative accel, decreasing alt)
+
+            if (time < 10) {
+                // Launch
+                engine_accel = 40 + (Math.random() * 5);
+                accel = engine_accel;
+            } else if (time < 30) {
+                // Coast
+                accel = -9.8;
+            } else {
+                // Landed / Descent
+                if (alt > 0) {
+                    accel = -9.8;
+                } else {
+                    accel = 0;
+                    alt = 0;
+                    speed = 0;
+                }
+            }
+
+            // Physics integration (very basic)
+            speed += accel * 0.2; // 0.2s timestep
+            alt += speed * 0.2;
+
+            if (alt < 0) { alt = 0; speed = 0; accel = 0; }
+
+            time += 0.2;
+
+            // Update GPS with random turns or drift
+            heading += (Math.random() - 0.5) * 0.1;
+            const moveSpeed = speed > 0 ? 0.0001 : 0.00002; 
             lat += Math.cos(heading) * moveSpeed;
             lng += Math.sin(heading) * moveSpeed;
 
@@ -42,10 +74,10 @@ export function useSimulation() {
                 type: 'telemetry',
                 altitude: Math.floor(alt),
                 speedVert: Math.floor(speed),
-                accel: 9.8,
-                status: time > 10 ? 'ASCENT' : 'ARMED',
-                statusCode: time > 10 ? 4 : 1,
-                battVoltage: 8200,
+                accel: parseFloat(accel.toFixed(1)),
+                status: time < 5 ? 'ARMED' : (time < 30 ? 'ASCENT' : 'DESCENT'),
+                statusCode: time < 5 ? 1 : (time < 30 ? 4 : 5),
+                battVoltage: 8200 - (time * 2), // Battery drains slightly
                 flightTime: time,
                 gpsLat: lat,
                 gpsLng: lng,
