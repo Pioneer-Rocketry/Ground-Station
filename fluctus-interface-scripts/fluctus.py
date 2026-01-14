@@ -16,7 +16,7 @@ def on_connect(client, userdata, flags, rc):
     if rc == 0: print("Connected to MQTT broker")
     else:       print(f"Failed to connect, rc={rc}")
 
-HARDWARE = False
+HARDWARE = True
 
 init = False
 command = None
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     client.subscribe(f"{MQTT_TOPIC}/control")
     print(f"{MQTT_TOPIC}/control")
 
-    if HARDWARE:
+    if not HARDWARE:
         # Open example file for testing
         while True:
             if init:
@@ -80,7 +80,8 @@ if __name__ == "__main__":
         ser = serial.Serial('/dev/ttyACM3', 9600, timeout=1)
         while ser.is_open:
             line = ser.readline().decode('utf-8').strip()
-            print(line)
+            if line != "\n": print(line)
+
             decoded_data = decodeFluctusData(line)
 
             if decoded_data is not None:            
