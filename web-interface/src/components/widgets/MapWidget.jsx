@@ -74,6 +74,7 @@ export function MapWidget({ className }) {
     const { gpsLat, gpsLng } = data;
     const startMarker = useRef(null);
     const currentMarker = useRef(null);
+    const userMarker = useRef(null);
 
     // Update ref when data changes
     useEffect(() => {
@@ -242,6 +243,31 @@ export function MapWidget({ className }) {
             }
         }
     }, [gpsPath, gpsLat, gpsLng]);
+
+    // User Location Tracking
+    useEffect(() => {
+        if (!navigator.geolocation) return;
+
+        const watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                const { latitude, longitude } = pos.coords;
+                if (!map.current) return;
+
+                if (!userMarker.current) {
+                    const el = document.createElement('div');
+                    el.className = 'w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-md';
+
+                    userMarker.current = new maplibregl.Marker({ element: el }).setLngLat([longitude, latitude]).addTo(map.current);
+                } else {
+                    userMarker.current.setLngLat([longitude, latitude]);
+                }
+            },
+            (err) => console.warn('Geolocation error:', err),
+            { enableHighAccuracy: true }
+        );
+
+        return () => navigator.geolocation.clearWatch(watchId);
+    }, []);
 
     return (
         <div className={className}>
