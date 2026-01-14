@@ -77,11 +77,9 @@ if __name__ == "__main__":
                 init = False
 
     else:
-        ser = serial.Serial('/dev/ttyACM3', 9600, timeout=1)
+        ser = serial.Serial('/dev/ttyACM3', timeout=1)
         while ser.is_open:
             line = ser.readline().decode('utf-8').strip()
-            if line != "\n": print(line)
-
             decoded_data = decodeFluctusData(line)
 
             if decoded_data is not None:            
