@@ -63,7 +63,7 @@ const SIMPLE_STYLE = {
             'source-layer': 'boundary',
             paint: { 'line-color': '#666', 'line-width': 1 },
         },
-    ]
+    ],
 };
 
 export function MapWidget({ className }) {
@@ -129,28 +129,20 @@ export function MapWidget({ className }) {
                 },
             });
 
-            // Add Line Layer (bottom most)
-            map.current.addLayer(
-                {
-                    id: 'gps-trace-line',
-                    type: 'line',
-                    source: 'gps-trace',
-                    layout: {
-                        'line-join': 'round',
-                        'line-cap': 'round',
-                    },
-                    paint: {
-                        'line-color': '#ffff00', // Yellow/Gold for visibility or adjust as requested
-                        'line-width': 4,
-                    },
+            // Add Line Layer
+            map.current.addLayer({
+                id: 'gps-trace-line',
+                type: 'line',
+                source: 'gps-trace',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round',
                 },
-                'water'
-            ); // Place before water if possible, or usually just add first. 'background' is bottom.
-            // Actually 'water' is usually above background. Let's try to put it right above background if possible or just use beforeId if we knew one.
-            // Given the SIMPLE_STYLE, layers are: background, water, road_major, boundary.
-            // We want it at the bottom-most layer that makes sense. Maybe above water?
-            // Actually user said "bottom most layer". So maybe before 'road_major'?
-            map.current.moveLayer('gps-trace-line', 'road_major');
+                paint: {
+                    'line-color': '#ffff00', // Yellow/Gold for visibility or adjust as requested
+                    'line-width': 4,
+                },
+            });
         });
 
         // Create Start Marker (Green Teardrop)
