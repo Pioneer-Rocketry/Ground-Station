@@ -21,6 +21,7 @@ def on_message(client, userdata, msg):
     global init
 
     payload = msg.payload.decode()
+    print(f"{msg.topic} - {payload}")
 
     if "start" in payload:
         init = True

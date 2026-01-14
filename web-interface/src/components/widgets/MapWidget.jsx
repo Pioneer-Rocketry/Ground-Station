@@ -26,11 +26,34 @@ const SIMPLE_STYLE = {
             paint: { 'fill-color': '#2c2c2c' },
         },
         {
+            id: 'waterway',
+            type: 'line',
+            source: 'openmaptiles',
+            'source-layer': 'waterway',
+            paint: { 'line-color': '#2c2c2c' },
+        },
+        {
             id: 'road_major',
             type: 'line',
             source: 'openmaptiles',
             'source-layer': 'transportation',
             filter: ['all', ['==', 'class', 'motorway']],
+            paint: { 'line-color': '#444', 'line-width': 2 },
+        },
+        {
+            id: 'road_minor',
+            type: 'line',
+            source: 'openmaptiles',
+            'source-layer': 'transportation',
+            filter: ['all', ['==', 'class', 'minor']],
+            paint: { 'line-color': '#444', 'line-width': 2 },
+        },
+        {
+            id: 'road_service',
+            type: 'line',
+            source: 'openmaptiles',
+            'source-layer': 'transportation',
+            filter: ['all', ['==', 'class', 'service']],
             paint: { 'line-color': '#444', 'line-width': 2 },
         },
         {
@@ -40,8 +63,7 @@ const SIMPLE_STYLE = {
             'source-layer': 'boundary',
             paint: { 'line-color': '#666', 'line-width': 1 },
         },
-    ],
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    ]
 };
 
 export function MapWidget({ className }) {
