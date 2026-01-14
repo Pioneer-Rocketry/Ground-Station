@@ -77,7 +77,7 @@ export function useSimulation() {
                 accel: parseFloat(accel.toFixed(1)),
                 status: time < 5 ? 'ARMED' : (time < 30 ? 'ASCENT' : 'DESCENT'),
                 statusCode: time < 5 ? 1 : (time < 30 ? 4 : 5),
-                battVoltage: 8200 - (time * 2), // Battery drains slightly
+                battVoltage: 8 - (Math.random() * 0.01), // Battery drains slightly
                 flightTime: time,
                 gpsLat: lat,
                 gpsLng: lng,

@@ -8,9 +8,15 @@ export function PyroWidget({ className, isMQTT }) {
     const { pyro } = data;
 
     const getStatusColor = (status) => {
-        if (status === 'CONTINUITY') return 'text-accent-success';
-        if (status === 'FIRED') return 'text-accent-warn';
-        return 'text-text-muted';
+        const statusColors = {
+            CONTINUITY: 'text-green-500',
+            ARMED: 'text-yellow-500',
+            FIRED: 'text-red-600',
+            DISABLED: 'text-gray-400',
+            UNKNOWN: 'text-red-500',
+        };
+
+        return statusColors[status] || 'text-gray-500';
     };
 
     return (

@@ -5,7 +5,7 @@ import { useTelemetry } from '../contexts/TelemetryContext';
 import { parseTelemetry, getStatusString, decodePyro } from '../lib/parser';
 
 export function useMQTT() {
-    const { setData, addLog, setConnectionStatus, setIsHost, setSource, updateSources, clearSources } = useTelemetry();
+    const { updateTelemetry, addLog, setConnectionStatus, setIsHost, clearSources } = useTelemetry();
     const [client, setClient] = useState(null);
     const [status, setStatus] = useState('Disconnected');
 
@@ -64,23 +64,15 @@ export function useMQTT() {
                 // If it is a JSON object, merge it
                 if (parsedJSON && typeof parsedJSON === 'object' && !Array.isArray(parsedJSON)) {
                     console.log('[MQTT] Merging JSON Object:', parsedJSON);
-                    setData(prev => ({ ...prev, ...parsedJSON }));
-
-                    // Mark all keys as MQTT source
-                    const newSources = {};
-                    Object.keys(parsedJSON).forEach(k => {
-                        newSources[k] = 'mqtt';
+                    Object.entries(parsedJSON).forEach(([k, v]) => {
+                        updateTelemetry(k, v, 'MQTT');
                     });
-                    updateSources(newSources);
-
                     return;
                 }
 
                 // 2. Topic-based Mapping (Scalar values)
                 // If the topic ends with a known key, update that key
                 const lastPart = topic.split('/').pop();
-                // 2. Topic-based Mapping (Scalar values)
-                // const lastPart = topic.split('/').pop(); // Already declared above
 
                 let keyToUpdate = null;
                 let valToUpdate = (parsedJSON !== undefined) ? parsedJSON : msgStr;
@@ -100,20 +92,15 @@ export function useMQTT() {
                     case 'status':
                         // Handle status: update both code and string
                         const code = parseInt(valToUpdate);
-                        setData(prev => ({
-                            ...prev,
-                            statusCode: code,
-                            status: getStatusString(code)
-                        }));
-                        updateSources({ statusCode: 'mqtt', status: 'mqtt' });
+                        updateTelemetry('statusCode', code, 'MQTT');
+                        updateTelemetry('status', getStatusString(code), 'MQTT');
                         return; // Done
 
                     case 'pyroStates':
                         // Handle pyro: decode byte
                         const pyroVal = parseInt(valToUpdate);
                         const pyroObj = decodePyro(pyroVal);
-                        setData(prev => ({ ...prev, pyro: pyroObj }));
-                        updateSources({ pyro: 'mqtt' });
+                        updateTelemetry('pyro', pyroObj, 'MQTT');
                         return; // Done
 
                     default:
@@ -126,8 +113,7 @@ export function useMQTT() {
 
                 if (keyToUpdate) {
                     // console.log(`[MQTT] Mapping topic "${lastPart}" -> "${keyToUpdate}":`, valToUpdate);
-                    setData(prev => ({ ...prev, [keyToUpdate]: valToUpdate }));
-                    setSource(keyToUpdate, 'mqtt');
+                    updateTelemetry(keyToUpdate, valToUpdate, 'MQTT');
                     return;
                 }
 
@@ -135,15 +121,12 @@ export function useMQTT() {
                 try {
                     const data = parseTelemetry(msgStr);
                     if (data.type === 'telemetry') {
-                        setData(prev => ({ ...prev, ...data }));
-
                         // Mark all keys as MQTT source
-                        const newSources = {};
-                        Object.keys(data).forEach(k => {
-                            // exclude internal parser keys if needed, but 'mqtt' source is fine for all
-                            newSources[k] = 'mqtt';
+                        Object.entries(data).forEach(([k, v]) => {
+                            if (k !== 'type' && k !== 'raw') {
+                                updateTelemetry(k, v, 'MQTT');
+                            }
                         });
-                        updateSources(newSources);
 
                     } else if (data.type === 'other' && data.raw.trim().length > 0) {
                         // Only log if not handled above to avoid noise

@@ -14,7 +14,7 @@ import { useState } from 'react';
 function AppContent() {
     const { connectSerial, sendCommand } = useSerial();
     const { startSimulation, isSimulating } = useSimulation();
-    const { setIsViewing, isViewing, setIsHost } = useTelemetry();
+    const { setIsViewing, isViewing, setIsHost, updateTelemetry } = useTelemetry();
     const { connectMQTT, disconnectMQTT, sendMQTTCommand, mqttStatus } = useMQTT();
     const [isMQTTModalOpen, setMQTTModalOpen] = useState(false);
     const [isSidebarOpen, setSidebarOpen] = useState(false);

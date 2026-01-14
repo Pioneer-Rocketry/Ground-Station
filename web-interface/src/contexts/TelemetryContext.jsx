@@ -130,11 +130,36 @@ export function TelemetryProvider({ children }) {
         }
     }, [data.gpsLat, data.gpsLng]);
 
+    // Track values by source: { [metric]: { [source]: value } }
+    const [valuesBySource, setValuesBySource] = useState({});
+
+    const updateTelemetry = (key, value, source = 'Unknown') => {
+        // Update valuesBySource
+        setValuesBySource((prev) => {
+            const currentMetricSources = prev[key] || {};
+            if (currentMetricSources[source] === value) return prev; // No change
+
+            return {
+                ...prev,
+                [key]: {
+                    ...currentMetricSources,
+                    [source]: value,
+                },
+            };
+        });
+
+        // Update single-source-of-truth 'data' for backward compatibility
+        // If the source matches our 'primary' source preference, or just last-write-wins for now
+        setData((prev) => ({ ...prev, [key]: value }));
+    };
+
     return (
         <TelemetryContext.Provider
             value={{
                 data,
                 setData,
+                valuesBySource,
+                updateTelemetry,
                 gpsPath,
                 logs,
                 addLog,

@@ -14,17 +14,18 @@ const DEFAULT_WIDGETS = [
     { id: 'speed', type: 'plot', label: 'Vertical Speed', unit: 'm/s', className: 'col-span-1 h-32', color: '#ffc658' },
     { id: 'mission_status', type: 'mission_status', className: 'col-span-1 md:col-span-2 lg:col-span-2 h-32' },
     { id: 'accel', type: 'plot', label: 'Acceleration', unit: 'm/s²', className: 'col-span-1 h-32', color: '#82ca9d' },
-    { id: 'battery', type: 'plot', label: 'Battery', unit: 'mV', className: 'col-span-1 h-32', color: '#ff8042' },
+    { id: 'battery', type: 'plot', label: 'Battery', unit: 'V', className: 'col-span-1 h-32', color: '#ff8042' },
     { id: 'flight_time', type: 'stat', label: 'Flight Time', unit: 's', className: 'col-span-1 h-32' },
     { id: 'pyro', type: 'pyro', className: 'col-span-1 md:col-span-2 h-32' },
     { id: 'message', type: 'message', className: 'col-span-1 md:col-span-2 h-32' },
 ];
 
 export function Dashboard() {
-    const { data, sources } = useTelemetry();
+    const { data, valuesBySource = {} } = useTelemetry();
     const [widgets, setWidgets] = useState([]);
     const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth <= 700);
 
+    // Mobile layout handling
     useEffect(() => {
         const handleResize = () => {
             setIsSmallScreen(window.innerWidth <= 800);
@@ -65,37 +66,37 @@ export function Dashboard() {
     const renderWidget = (widget) => {
         // Common data logic
         let value = 0;
-        let sourceKey = widget.id;
+        let metricKey = widget.id;
 
-        // Map ID to data source
-        if (widget.id === 'altitude') value = data.altitude;
-        if (widget.id === 'speed') {
+        // Map ID to data source key
+        if (widget.id === 'altitude') {
+            value = data.altitude;
+            metricKey = 'altitude';
+        } else if (widget.id === 'speed') {
             value = data.speedVert;
-            sourceKey = 'speedVert';
-        }
-        if (widget.id === 'accel') value = data.accel; // keep raw number for plot
-        if (widget.id === 'battery') {
+            metricKey = 'speedVert';
+        } else if (widget.id === 'accel') {
+            value = data.accel;
+            metricKey = 'accel';
+        } else if (widget.id === 'battery') {
             value = data.battVoltage;
-            sourceKey = 'battVoltage';
-        }
-        if (widget.id === 'flight_time') {
+            metricKey = 'battVoltage';
+        } else if (widget.id === 'flight_time') {
             value = data.flightTime;
-            sourceKey = 'flightTime';
-        }
-        if (widget.id === 'gps_lat') {
+            metricKey = 'flightTime';
+        } else if (widget.id === 'gps_lat') {
             value = data.gpsLat;
-            sourceKey = 'gpsLat';
-        }
-        if (widget.id === 'gps_lng') {
+            metricKey = 'gpsLat';
+        } else if (widget.id === 'gps_lng') {
             value = data.gpsLng;
-            sourceKey = 'gpsLng';
-        }
-        if (widget.id === 'gps_state') {
+            metricKey = 'gpsLng';
+        } else if (widget.id === 'gps_state') {
             value = data.gpsState;
-            sourceKey = 'gpsState';
+            metricKey = 'gpsState';
         }
 
-        const isMQTT = sources[sourceKey] === 'mqtt';
+        // Get all values for this metric from different sources
+        const values = (valuesBySource && valuesBySource[metricKey]) || {};
 
         switch (widget.type) {
             case 'map':
@@ -133,7 +134,7 @@ export function Dashboard() {
 
             case 'plot':
                 // Format value for display if needed, but pass raw number to plot
-                return <PlotWidget label={widget.label} value={value} unit={widget.unit} subLabel={widget.subLabel} className="h-full" color={widget.color} isMQTT={isMQTT} />;
+                return <PlotWidget label={widget.label} value={value} values={values} unit={widget.unit} subLabel={widget.subLabel} className="h-full" color={widget.color} />;
 
             case 'stat':
                 // Format specific values for stat card
@@ -144,7 +145,7 @@ export function Dashboard() {
                     displayValue = typeof value === 'number' ? value.toFixed(isSmallScreen ? 4 : 6) : value;
                 }
 
-                return <StatCard label={widget.label} value={displayValue} unit={widget.unit} subLabel={widget.subLabel} className="h-full" isMQTT={isMQTT} />;
+                return <StatCard label={widget.label} value={displayValue} values={values} unit={widget.unit} subLabel={widget.subLabel} className="h-full" />;
 
             case 'mission_status':
                 return (
@@ -153,12 +154,12 @@ export function Dashboard() {
                         value={data.status}
                         valueColor={data.statusCode >= 4 ? 'text-accent-primary' : data.statusCode >= 1 ? 'text-accent-warn' : 'text-white'}
                         className="h-full"
-                        isMQTT={sources['status'] === 'mqtt' || sources['statusCode'] === 'mqtt'}
+                        values={values} // Pass values although status might be special handling
                     />
                 );
 
             case 'pyro':
-                return <PyroWidget className="h-full" isMQTT={sources['pyro'] === 'mqtt'} />;
+                return <PyroWidget className="h-full" isMQTT={false} />; // Pyro widget might need update too later
 
             case 'message':
                 return <MessageWidget className="h-full" />;
