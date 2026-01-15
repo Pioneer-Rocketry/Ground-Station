@@ -24,6 +24,8 @@ export function TelemetryProvider({ children }) {
     const { socket } = useSocket();
     const [data, setData] = useState(INITIAL_DATA);
     const [gpsPath, setGpsPath] = useState([]); // Store [lng, lat] history
+    const [pathsBySource, setPathsBySource] = useState({}); // Store { source: [[lng, lat], ...] }
+
     const [logs, setLogs] = useState([]);
     const [isHost, setIsHost] = useState(false);
     const [isViewing, setIsViewing] = useState(false);
@@ -41,6 +43,23 @@ export function TelemetryProvider({ children }) {
 
     const clearSources = () => {
         setSources({});
+        setValuesBySource({});
+        setPathsBySource({});
+    };
+
+    const updatePath = (source, lat, lng) => {
+        setPathsBySource((prev) => {
+            const currentPath = prev[source] || [];
+            const last = currentPath[currentPath.length - 1];
+            if (last && last[0] === lng && last[1] === lat) return prev; // No change
+
+            // Limit path length to avoid performance issues over long runs?
+            // For now, let's keep it simple.
+            return {
+                ...prev,
+                [source]: [...currentPath, [lng, lat]],
+            };
+        });
     };
 
     const addLog = (msg, type = 'info') => {
@@ -161,6 +180,8 @@ export function TelemetryProvider({ children }) {
                 valuesBySource,
                 updateTelemetry,
                 gpsPath,
+                pathsBySource,
+                updatePath,
                 logs,
                 addLog,
                 isHost,

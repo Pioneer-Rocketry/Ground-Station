@@ -3,7 +3,7 @@ import { useTelemetry } from '../contexts/TelemetryContext';
 import { useSocket } from '../contexts/SocketContext';
 
 export function useSimulation() {
-    const { setData, addLog, setIsHost, setConnectionStatus, isHost } = useTelemetry();
+    const { setData, addLog, setIsHost, setConnectionStatus, isHost, updateTelemetry, clearSources, updatePath } = useTelemetry();
     const { socket } = useSocket();
     const intervalRef = useRef(null);
     const [isSimulating, setIsSimulating] = useState(false);
@@ -16,81 +16,125 @@ export function useSimulation() {
 
         setIsHost(true);
         setIsSimulating(true);
+        clearSources();
         addLog('Starting Simulation Host...');
         setConnectionStatus('Simulating (Host)');
 
-        let time = 0;
-        let alt = 0;
-        let speed = 0;
-        let lat = 42.7329;
-        let lng = -90.48;
-        let heading = 0; // Radians
-        let engine_accel = 0;
-        let accel = 0;
+        // Helper to create a device
+        const createDevice = (name, offsetLat = 0, offsetLng = 0) => ({
+            name,
+            time: 0,
+            alt: 0,
+            speed: 0,
+            accel: 0,
+            lat: 42.7329 + offsetLat, // Start near Platteville
+            lng: -90.48 + offsetLng,
+            heading: Math.random() * Math.PI * 2,
+            engine_accel: 0,
+            phase: 'IDLE' // IDLE, FLIGHT
+        });
 
-        let step = 0;
+        // Initialize Devices
+        const devices = [
+            createDevice('PTR', 0.01, 0.01),
+            createDevice('FLCTS', -0.01, -0.01)
+        ];
 
         intervalRef.current = setInterval(() => {
-            step++;
 
-            // Simulating a flight profile:
-            // 0-100: Launch & Ascent (High accel, increasing alt)
-            // 100-200: Coast (Negative accel/gravity, slower ascent)
-            // 200+: Descent (Negative accel, decreasing alt)
+            // Physics Update Loop
+            devices.forEach(dev => {
+                let { time, alt, speed, accel, lat, lng, heading, engine_accel } = dev;
 
-            if (time < 10) {
+                // Simulating a flight profile:
+                if (time < 10) {
                 // Launch
-                engine_accel = 40 + (Math.random() * 5);
-                accel = engine_accel;
-            } else if (time < 30) {
-                // Coast
-                accel = -9.8;
-            } else {
-                // Landed / Descent
-                if (alt > 0) {
+                    if (engine_accel === 0) engine_accel = 40 + (Math.random() * 5); // Init engine once
+                    accel = engine_accel;
+                } else if (time < 30) {
+                    // Coast
                     accel = -9.8;
                 } else {
-                    accel = 0;
-                    alt = 0;
-                    speed = 0;
+                    // Landed / Descent
+                    if (alt > 0) {
+                        accel = -9.8;
+                    } else {
+                        accel = 0;
+                        alt = 0;
+                        speed = 0;
+                    }
                 }
-            }
 
-            // Physics integration (very basic)
-            speed += accel * 0.2; // 0.2s timestep
-            alt += speed * 0.2;
+                // Physics integration (very basic)
+                speed += accel * 0.2; // 0.2s timestep
+                alt += speed * 0.2;
 
-            if (alt < 0) { alt = 0; speed = 0; accel = 0; }
+                if (alt < 0) { alt = 0; speed = 0; accel = 0; }
 
-            time += 0.2;
+                time += 0.2;
 
-            // Update GPS with random turns or drift
-            heading += (Math.random() - 0.5) * 0.1;
-            const moveSpeed = speed > 0 ? 0.0001 : 0.00002; 
-            lat += Math.cos(heading) * moveSpeed;
-            lng += Math.sin(heading) * moveSpeed;
+                // Update GPS with random turns or drift
+                heading += (Math.random() - 0.5) * 0.1;
+                const moveSpeed = speed > 0 ? 0.0001 : 0.00002;
+                lat += Math.cos(heading) * moveSpeed;
+                lng += Math.sin(heading) * moveSpeed;
 
-            const data = {
-                type: 'telemetry',
-                altitude: Math.floor(alt),
-                speedVert: Math.floor(speed),
-                accel: parseFloat(accel.toFixed(1)),
-                status: time < 5 ? 'ARMED' : (time < 30 ? 'ASCENT' : 'DESCENT'),
-                statusCode: time < 5 ? 1 : (time < 30 ? 4 : 5),
-                battVoltage: 8 - (Math.random() * 0.01), // Battery drains slightly
-                flightTime: time,
-                gpsLat: lat,
-                gpsLng: lng,
-                gpsState: 3,
-                pyro: { A: 'CONTINUITY', B: 'DISABLED', C: 'UNKNOWN' },
-                message: { id: 'A', value: 1234, decodedValue: 1234 }
-            };
+                // Save back to object
+                dev.time = time;
+                dev.alt = alt;
+                dev.speed = speed;
+                dev.accel = accel;
+                dev.lat = lat;
+                dev.lng = lng;
+                dev.heading = heading;
+                dev.engine_accel = engine_accel;
 
-            // Update local
-            setData(prev => ({ ...prev, ...data }));
-            
-            // Broadcast
-            if (socket) socket.emit('host_data', data);
+
+                // Construct Telemetry Packet
+                const data = {
+                    type: 'telemetry',
+                    altitude: Math.floor(alt),
+                    speedVert: Math.floor(speed),
+                    accel: parseFloat(accel.toFixed(1)),
+                    status: time < 5 ? 'ARMED' : (time < 30 ? 'ASCENT' : 'DESCENT'),
+                    statusCode: time < 5 ? 1 : (time < 30 ? 4 : 5),
+                    battVoltage: 8 - (Math.random() * 0.01), // Battery drains slightly
+                    flightTime: time,
+                    gpsLat: lat,
+                    gpsLng: lng,
+                    gpsState: 3,
+                    pyro: { A: 'CONTINUITY', B: 'DISABLED', C: 'UNKNOWN' },
+                    message: { id: 'A', value: 1234, decodedValue: 1234 }
+                };
+
+                // 1. Update LOCAL state via updateTelemetry (for multi-source widgets)
+                // We update each relevant field with the source name
+                updateTelemetry('altitude', data.altitude, dev.name);
+                updateTelemetry('speedVert', data.speedVert, dev.name);
+                updateTelemetry('accel', data.accel, dev.name);
+                updateTelemetry('gpsLat', data.gpsLat, dev.name);
+                updateTelemetry('gpsLng', data.gpsLng, dev.name);
+                updatePath(dev.name, data.gpsLat, data.gpsLng);
+                updateTelemetry('status', data.status, dev.name);
+                updateTelemetry('statusCode', data.statusCode, dev.name);
+                updateTelemetry('battVoltage', data.battVoltage, dev.name);
+                updateTelemetry('flightTime', data.flightTime, dev.name);
+                updateTelemetry('pyro', data.pyro, dev.name);
+                updateTelemetry('message', data.message, dev.name);
+
+                // 2. Broadcast separate packets for each source
+                // Note: The server might expect a standard format.
+                // If we send { ...data, source: dev.name }, the server/clients need to handle it.
+                if (socket) {
+                    socket.emit('host_data', { ...data, source: dev.name });
+                }
+
+                // 3. For 'Rocket', we ALSO drive the legacy single-source state for MapWidget/etc
+                // that hasn't been upgraded to verify sources yet.
+                if (dev.name === 'Rocket') {
+                    setData(prev => ({ ...prev, ...data }));
+                }
+            });
 
         }, 200);
     };

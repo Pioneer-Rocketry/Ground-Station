@@ -96,7 +96,21 @@ export function Dashboard() {
         }
 
         // Get all values for this metric from different sources
-        const values = (valuesBySource && valuesBySource[metricKey]) || {};
+        let values = (valuesBySource && valuesBySource[metricKey]) || {};
+
+        // Filter out "Default" or "Unknown" if we have other valid sources
+        const sourceKeys = Object.keys(values);
+        if (sourceKeys.length > 1) {
+            const refined = {};
+            let hasSpecific = false;
+            sourceKeys.forEach((k) => {
+                if (k !== 'Default' && k !== 'default' && k !== 'Unknown' && k !== 'unknown') {
+                    refined[k] = values[k];
+                    hasSpecific = true;
+                }
+            });
+            if (hasSpecific) values = refined;
+        }
 
         switch (widget.type) {
             case 'map':

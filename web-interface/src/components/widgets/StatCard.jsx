@@ -31,15 +31,15 @@ export function StatCard({
                         <div key={source} className="flex items-baseline gap-2">
                             <span className="text-text-muted text-[10px] font-bold uppercase">{source}</span>
                             <div className="flex items-baseline gap-1">
-                                <span className={cn('text-2xl font-bold font-mono', valueColor || 'text-white')}>{typeof val === 'number' ? val.toFixed(2) : val}</span>
-                                {unit && <span className="text-text-muted text-xs font-mono">{unit}</span>}
+                                <span className={cn('text-sm font-bold font-mono', valueColor || 'text-white')}>{typeof val === 'number' ? val.toFixed(2) : val}</span>
+                                {unit && <span className="text-text-muted text-[10px] font-mono">{unit}</span>}
                             </div>
                         </div>
                     ))
                 ) : (
                     <div className="flex items-baseline gap-1">
-                        <span className={cn('text-3xl font-bold font-mono', valueColor || 'text-white')}>{value}</span>
-                        {unit && <span className="text-text-muted text-sm font-mono">{unit}</span>}
+                        <span className={cn('text-xs font-bold font-mono', valueColor || 'text-white')}>{value}</span>
+                        {unit && <span className="text-text-muted text-xs font-mono">{unit}</span>}
                     </div>
                 )}
             </div>

@@ -27,9 +27,15 @@ export function PlotWidget({ label, value, values = {}, unit, subLabel, classNam
             });
             if (pt.default !== undefined) s.add('default');
         });
+
+        const arr = Array.from(s);
+        // If we have other sources, hide default/unknown to avoid clutter
+        if (arr.length > 1) {
+            return arr.filter((k) => k !== 'default' && k !== 'Unknown').sort();
+        }
         // If empty and we have a value, maybe default?
-        if (s.size === 0 && value !== undefined) return ['default'];
-        return Array.from(s);
+        if (arr.length === 0 && value !== undefined) return ['default'];
+        return arr.sort();
     }, [history, value]);
 
     // Keep track of value updates to append to history
@@ -47,12 +53,21 @@ export function PlotWidget({ label, value, values = {}, unit, subLabel, classNam
         });
     }, [values, value]); // Depend on values object
 
-    // Color palette for different sources
-    const COLORS = [color, '#82ca9d', '#ffc658', '#ff8042', '#a4de6c', '#d0ed57'];
+    // Global consistent palette for devices
+    const GLOBAL_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+
+    // Map sources to specific colors if we want (e.g. PTR always Blue, FLCTS always Red)
+    // Or just rely on sorted order + generic palette.
+    // Sorted order: FLCTS (idx 0), PTR (idx 1).
+    // FLCTS -> Blue (#3b82f6)
+    // PTR -> Red (#ef4444)
+    // This is consistent.
+
     const getSourceColor = (source, index) => {
-        if (source === 'default') return color;
-        // if source is standard names, maybe fixed colors?
-        return COLORS[index % COLORS.length];
+        if (source === 'default') return color; // Keep theme color for generic/default
+        // Hash the source name to pick a color? Or just index?
+        // Index of sorted sources is safest for "first color, second color" request.
+        return GLOBAL_COLORS[index % GLOBAL_COLORS.length];
     };
 
     return (
@@ -75,7 +90,7 @@ export function PlotWidget({ label, value, values = {}, unit, subLabel, classNam
                                         {source}
                                     </span>
                                     <div className="flex items-baseline gap-1">
-                                        <span className="text-xl font-bold font-mono text-white">{typeof val === 'number' ? val.toFixed(1) : val !== undefined ? val : typeof value === 'number' ? value.toFixed(1) : value}</span>
+                                        <span className="text-xs font-bold font-mono text-white">{typeof val === 'number' ? val.toFixed(1) : val !== undefined ? val : typeof value === 'number' ? value.toFixed(1) : value}</span>
                                         {unit && <span className="text-text-muted text-xs font-mono">{unit}</span>}
                                     </div>
                                 </div>
