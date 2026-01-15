@@ -42,6 +42,7 @@ edit `/etc/mosquitto/passwd`
 # Anonymous users: READ ONLY
 pattern read telemetry/#
 pattern write telemetry/+/control
+pattern write telemetry/devices
 
 # Authenticated writer user
 user device
