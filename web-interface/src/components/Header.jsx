@@ -5,7 +5,7 @@ import { useSocket } from '../contexts/SocketContext';
 import { useSerial } from '../hooks/useSerial';
 import favicon from '../images/favicon.ico';
 
-export function Header({ onConnectSerial, onSimulate, onToggleStream, onOpenMQTT, mqttStatus, onDisconnectMQTT, onToggleSidebar }) {
+export function Header({ onConnectSerial, onSimulate, onImport, isReplaying, onToggleStream, onOpenMQTT, mqttStatus, onDisconnectMQTT, onToggleSidebar }) {
     const { connectionStatus, isHost, isViewing } = useTelemetry();
     const { connected: socketConnected } = useSocket();
 
@@ -41,8 +41,14 @@ export function Header({ onConnectSerial, onSimulate, onToggleStream, onOpenMQTT
                         className={`px-4 py-1.5 text-xs font-bold border rounded transition-colors ${mqttStatus === 'Connected' ? 'bg-green-600/20 border-green-500 text-green-500 hover:bg-green-600/30' : 'border-purple-500 text-purple-500 hover:bg-purple-500/10'}`}>
                         {mqttStatus === 'Connected' ? 'MQTT ACTIVE' : 'MQTT'}
                     </button>
-                    <button onClick={onSimulate} disabled={isViewing || isHost} className="px-4 py-1.5 text-xs font-bold border border-text-muted text-text-muted rounded hover:bg-white/5 disabled:opacity-50 transition-colors">
+                    <button onClick={onSimulate} disabled={isViewing || isHost || isReplaying} className="px-4 py-1.5 text-xs font-bold border border-text-muted text-text-muted rounded hover:bg-white/5 disabled:opacity-50 transition-colors">
                         SIMULATE
+                    </button>
+                    <button
+                        onClick={onImport}
+                        disabled={isViewing || isHost}
+                        className={`px-4 py-1.5 text-xs font-bold border border-text-muted text-text-muted rounded hover:bg-white/5 disabled:opacity-50 transition-colors ${isReplaying ? 'bg-accent-warn/20 text-accent-warn border-accent-warn' : ''}`}>
+                        {isReplaying ? 'STOP REPLAY' : 'IMPORT'}
                     </button>
                     <button onClick={onToggleStream} className={`px-4 py-1.5 text-xs font-bold border rounded transition-colors ${isViewing ? 'bg-accent-primary border-accent-primary text-white hover:bg-red-600' : 'border-blue-500 text-blue-500 hover:bg-blue-500/10'}`}>
                         {isViewing ? 'EXIT STREAM' : 'VIEW STREAM'}
@@ -99,9 +105,21 @@ export function Header({ onConnectSerial, onSimulate, onToggleStream, onOpenMQTT
                                 onSimulate();
                                 setIsMobileMenuOpen(false);
                             }}
-                            disabled={isViewing || isHost}
+                            disabled={isViewing || isHost || isReplaying}
                             className="w-full py-3 text-sm font-bold border border-text-muted text-text-muted rounded hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                             SIMULATE DATA
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                onImport();
+                                setIsMobileMenuOpen(false);
+                            }}
+                            disabled={isViewing || isHost}
+                            className={`w-full py-3 text-sm font-bold border border-text-muted text-text-muted rounded hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                                isReplaying ? 'bg-accent-warn/20 text-accent-warn border-accent-warn' : ''
+                            }`}>
+                            {isReplaying ? 'STOP REPLAY' : 'IMPORT DATA'}
                         </button>
 
                         <button

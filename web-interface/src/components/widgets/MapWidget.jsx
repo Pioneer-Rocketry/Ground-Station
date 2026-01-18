@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useTelemetry } from '../../contexts/TelemetryContext';
+import { GLOBAL_COLORS } from '../../lib/const';
 
 const SIMPLE_STYLE = {
     version: 8,
@@ -67,16 +68,15 @@ const SIMPLE_STYLE = {
 };
 
 // Global consistent palette for devices (Same as PlotWidget)
-const GLOBAL_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
 export function MapWidget({ className }) {
     const mapContainer = useRef(null);
     const map = useRef(null);
     const coordsRef = useRef([0, 0]); // Store latest for event handlers
-    
-    const { data, pathsBySource, valuesBySource } = useTelemetry();
+
+    const { data, pathsBySource, valuesBySource, is3DMode } = useTelemetry();
     const { gpsLat, gpsLng } = data;
-    
+
     // Track markers by source: { [source]: Marker }
     const markersRef = useRef({});
     const startMarkersRef = useRef({});
@@ -96,14 +96,37 @@ export function MapWidget({ className }) {
             style: SIMPLE_STYLE,
             center: [-90.48, 42.7329], // Busby Hall, UW-Platteville
             zoom: 16,
+            pitch: 60, // Start with some tilt
+            bearing: -17.6,
+            maxPitch: 85,
             doubleClickZoom: false,
         });
 
-        map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
+        map.current.addControl(
+            new maplibregl.NavigationControl({
+                visualizePitch: true,
+                showZoom: true,
+                showCompass: true,
+            }),
+            'top-right'
+        );
+
+        // Initial setup only
+        map.current.on('load', () => {
+            map.current.addSource('terrain', {
+                type: 'raster-dem',
+                url: 'https://demotiles.maplibre.org/terrain-tiles/tiles.json',
+                tileSize: 256,
+            });
+            // Default based on initial state (which defaults to false)
+            if (is3DMode) {
+                map.current.setTerrain({ source: 'terrain', exaggeration: 1.5 });
+            }
+        });
 
         // External Map Handler
         map.current.on('dblclick', (e) => {
-            e.preventDefault(); 
+            e.preventDefault();
             const [lat, lng] = coordsRef.current;
             if (lat === 0 && lng === 0) return;
 
@@ -115,26 +138,41 @@ export function MapWidget({ className }) {
             }
         });
 
-        // Cleanup
+        // ... cleanup
         return () => {
             map.current?.remove();
             map.current = null;
             markersRef.current = {};
             startMarkersRef.current = {};
         };
-    }, []);
+    }, []); // Run once
+
+    // React to 3D Mode changes
+    useEffect(() => {
+        if (!map.current || !map.current.getSource('terrain')) return;
+
+        if (is3DMode) {
+            map.current.setTerrain({ source: 'terrain', exaggeration: 1.5 });
+            map.current.easeTo({ pitch: 60, bearing: -17.6 });
+        } else {
+            map.current.setTerrain(null); // Disable terrain
+            map.current.easeTo({ pitch: 0, bearing: 0 }); // Top-down view
+        }
+    }, [is3DMode]);
 
     const lastInteraction = useRef(0);
 
     // Track user interaction
     useEffect(() => {
         if (!map.current) return;
-        const handleInteraction = () => lastInteraction.current = Date.now();
+        const handleInteraction = () => (lastInteraction.current = Date.now());
         const canvas = map.current.getCanvas();
         canvas.addEventListener('mousedown', handleInteraction);
         canvas.addEventListener('touchstart', handleInteraction);
         canvas.addEventListener('wheel', handleInteraction);
-        map.current.on('movestart', (e) => { if (e.originalEvent) handleInteraction(); });
+        map.current.on('movestart', (e) => {
+            if (e.originalEvent) handleInteraction();
+        });
 
         return () => {
             canvas.removeEventListener('mousedown', handleInteraction);
@@ -144,8 +182,15 @@ export function MapWidget({ className }) {
     }, []);
 
     // Handle Paths and Markers
+    const lastMapUpdate = useRef(0);
+
     useEffect(() => {
         if (!map.current) return;
+
+        // Throttle updates to ~10fps (100ms) to prevent UI lag during high-speed replay
+        const now = Date.now();
+        if (now - lastMapUpdate.current < 100 && Object.keys(pathsBySource).length > 0) return;
+        lastMapUpdate.current = now;
 
         // Ensure we handle all sources found in pathsBySource
         // We also want to respect the sorted order for colors
@@ -157,30 +202,154 @@ export function MapWidget({ className }) {
             const color = GLOBAL_COLORS[idx % GLOBAL_COLORS.length];
             const sourceId = `trace-${source}`;
 
-            // Add Source if missing
+            const shadowId = `trace-shadow-${source}`;
+            const extrusionId = `trace-extrusion-${source}`;
+
+            // 1. Prepare Data
+            // Shadow: 2D projection
+            const shadowPath = path.map((p) => [p[0], p[1]]);
+
+            // Extrusion: Create a "Floating Ribbon" to simulate a 3D line
+            // We extrude from (alt - thickness) to (alt) so it floats in the air
+            const pillars = [];
+
+            if (is3DMode) {
+                const samplingRate = 2; // Optimize: use every 2nd point to reduce polygon count by 50%
+                const thickness = 5; // 5 Meters thick (finer line)
+                const width = 0.00002; // ~2 Meters width (finer line)
+
+                for (let i = 0; i < path.length; i += samplingRate) {
+                    const [lng, lat, alt] = path[i];
+                    // Show anything above 0, even if small
+                    if (alt === undefined || alt <= 1) continue;
+
+                    // Clamp base to be at least 0
+                    let base = alt - thickness;
+                    if (base < 0) base = 0;
+
+                    pillars.push({
+                        type: 'Feature',
+                        properties: {
+                            level: alt,
+                            base: base,
+                            color: color,
+                        },
+                        geometry: {
+                            type: 'Polygon',
+                            coordinates: [
+                                [
+                                    [lng - width, lat - width],
+                                    [lng + width, lat - width],
+                                    [lng + width, lat + width],
+                                    [lng - width, lat + width],
+                                    [lng - width, lat - width],
+                                ],
+                            ],
+                        },
+                    });
+                }
+                // Ensure the very last point is always added for accuracy
+                if (path.length > 0) {
+                    const [lng, lat, alt] = path[path.length - 1];
+                    if (alt > 1) {
+                        // Adjusted condition to match the loop
+                        let base = alt - thickness;
+                        if (base < 0) base = 0;
+                        pillars.push({
+                            type: 'Feature',
+                            properties: { level: alt, base: alt - thickness, color: color },
+                            geometry: {
+                                type: 'Polygon',
+                                coordinates: [
+                                    [
+                                        [lng - width, lat - width],
+                                        [lng + width, lat - width],
+                                        [lng + width, lat + width],
+                                        [lng - width, lat + width],
+                                        [lng - width, lat - width],
+                                    ],
+                                ],
+                            },
+                        });
+                    }
+                }
+            }
+
+            // 2. Add Sources/Layers if Missing
+
+            // A. Shadow (Ground Track) - Keep this for reference!
+            if (!map.current.getSource(shadowId)) {
+                map.current.addSource(shadowId, {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] },
+                });
+                map.current.addLayer({
+                    id: `line-shadow-${source}`,
+                    type: 'line',
+                    source: shadowId,
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: {
+                        'line-color': '#000000',
+                        'line-opacity': 0.3,
+                        'line-width': 4,
+                        'line-blur': 1,
+                    },
+                });
+            }
+
+            // B. Extrusion (Floating 3D Line)
+            if (!map.current.getSource(extrusionId)) {
+                map.current.addSource(extrusionId, {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] },
+                });
+                map.current.addLayer({
+                    id: `extrusion-${source}`,
+                    type: 'fill-extrusion',
+                    source: extrusionId,
+                    paint: {
+                        'fill-extrusion-color': ['get', 'color'],
+                        'fill-extrusion-height': ['get', 'level'],
+                        'fill-extrusion-base': ['get', 'base'],
+                        'fill-extrusion-opacity': 1,
+                    },
+                });
+            }
+
+            // C. Main Line (Draped) - Optional, keeps ground track clear
+            // user request "just a 3d line", so maybe hide draped line if shadow exists?
+            // Let's keep draped line as "ground projection" (shadow is black, this is colored)
+            // Or maybe transparent? Let's make it very faint.
             if (!map.current.getSource(sourceId)) {
                 map.current.addSource(sourceId, {
                     type: 'geojson',
-                    data: {
-                        type: 'Feature',
-                        properties: {},
-                        geometry: { type: 'LineString', coordinates: [] },
-                    },
+                    data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
                 });
-
                 map.current.addLayer({
                     id: `line-${source}`,
                     type: 'line',
                     source: sourceId,
                     layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: { 
-                        'line-color': color, 
-                        'line-width': 4 
+                    paint: {
+                        'line-color': color,
+                        'line-width': 2,
+                        'line-opacity': 0.2, // Faint ground track
                     },
                 });
             }
 
-            // Update Data
+            // 3. Update Data
+            map.current.getSource(shadowId).setData({
+                type: 'Feature',
+                properties: {},
+                geometry: { type: 'LineString', coordinates: shadowPath },
+            });
+
+            map.current.getSource(extrusionId).setData({
+                type: 'FeatureCollection',
+                features: pillars,
+            });
+
             map.current.getSource(sourceId).setData({
                 type: 'Feature',
                 properties: {},
@@ -193,14 +362,12 @@ export function MapWidget({ className }) {
                     const startEl = document.createElement('div');
                     // Green Teardrop for Start
                     startEl.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="#22c55e" stroke="white" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>`;
-                    startEl.className = 'w-6 h-6 -translate-x-1/2 -translate-y-full'; 
-                    startMarkersRef.current[source] = new maplibregl.Marker({ element: startEl, anchor: 'bottom' })
-                        .setLngLat(path[0])
-                        .addTo(map.current);
+                    startEl.className = 'w-6 h-6 -translate-x-1/2 -translate-y-full';
+                    startMarkersRef.current[source] = new maplibregl.Marker({ element: startEl, anchor: 'bottom' }).setLngLat(path[0]).addTo(map.current);
                 } else {
                     // Update header if needed, but start position shouldn't move usually?
                     // Safe to update just in case it was 0,0
-                     startMarkersRef.current[source].setLngLat(path[0]);
+                    startMarkersRef.current[source].setLngLat(path[0]);
                 }
             }
         });
@@ -221,9 +388,7 @@ export function MapWidget({ className }) {
                 currentEl.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="${color}" stroke="white" stroke-width="2"><path d="M12 2L2 22h20L12 2z"/></svg>`;
                 currentEl.className = 'w-6 h-6';
 
-                markersRef.current[source] = new maplibregl.Marker({ element: currentEl, anchor: 'center' })
-                    .setLngLat(currentPos)
-                    .addTo(map.current);
+                markersRef.current[source] = new maplibregl.Marker({ element: currentEl, anchor: 'center' }).setLngLat(currentPos).addTo(map.current);
             } else {
                 markersRef.current[source].setLngLat(currentPos);
             }
@@ -233,10 +398,9 @@ export function MapWidget({ className }) {
             // "Rocket" logic: if source is 'PTR' (idx 1 usually) or just first source?
             // Let's stick to first source for now.
             if (idx === 0 && Date.now() - lastInteraction.current > 4000) {
-                 map.current.panTo(currentPos);
+                map.current.panTo(currentPos);
             }
         });
-
     }, [pathsBySource]);
 
     // User Location Tracking

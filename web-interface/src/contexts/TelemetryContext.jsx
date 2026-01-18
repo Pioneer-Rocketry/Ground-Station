@@ -30,6 +30,7 @@ export function TelemetryProvider({ children }) {
     const [isHost, setIsHost] = useState(false);
     const [isViewing, setIsViewing] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState('Disconnected');
+    const [is3DMode, setIs3DMode] = useState(false);
     // Track source of each data field: 'serial', 'mqtt', or undefined/default
     const [sources, setSources] = useState({});
 
@@ -47,17 +48,19 @@ export function TelemetryProvider({ children }) {
         setPathsBySource({});
     };
 
-    const updatePath = (source, lat, lng) => {
+    const updatePath = (source, lat, lng, alt) => {
         setPathsBySource((prev) => {
             const currentPath = prev[source] || [];
             const last = currentPath[currentPath.length - 1];
-            if (last && last[0] === lng && last[1] === lat) return prev; // No change
+            // Check for duplicate point (ignoring small float discrepancies if needed, but strict for now)
+            if (last && last[0] === lng && last[1] === lat && last[2] === alt) return prev;
 
-            // Limit path length to avoid performance issues over long runs?
-            // For now, let's keep it simple.
+            // Construct 3D or 2D coordinate
+            const coord = alt !== undefined ? [lng, lat, alt] : [lng, lat];
+
             return {
                 ...prev,
-                [source]: [...currentPath, [lng, lat]],
+                [source]: [...currentPath, coord],
             };
         });
     };
@@ -194,6 +197,8 @@ export function TelemetryProvider({ children }) {
                 setSource,
                 updateSources,
                 clearSources,
+                is3DMode,
+                setIs3DMode,
             }}>
             {children}
         </TelemetryContext.Provider>

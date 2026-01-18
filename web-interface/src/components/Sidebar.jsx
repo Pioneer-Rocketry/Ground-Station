@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTelemetry } from '../contexts/TelemetryContext';
 
 export function Sidebar({ onCommand, onResetLayout, isOpen, onClose }) {
-    const { logs, isHost } = useTelemetry();
+    const { logs, isHost, is3DMode, setIs3DMode } = useTelemetry();
     const [band, setBand] = useState('0');
     const [channel, setChannel] = useState('00');
 
@@ -67,9 +67,14 @@ export function Sidebar({ onCommand, onResetLayout, isOpen, onClose }) {
             <div className="flex-1 flex flex-col min-h-0">
                 <div className="p-4 pb-2 border-b border-border-color flex justify-between items-center bg-bg-panel/50">
                     <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">System Log</h2>
-                    <button onClick={onResetLayout} className="text-[10px] text-accent-primary hover:underline">
-                        RESET LAYOUT
-                    </button>
+                    <div className="flex gap-4">
+                        <button onClick={() => setIs3DMode(!is3DMode)} className={`text-[10px] font-bold ${is3DMode ? 'text-accent-primary' : 'text-text-muted hover:text-white'}`}>
+                            3D: {is3DMode ? 'ON' : 'OFF'}
+                        </button>
+                        <button onClick={onResetLayout} className="text-[10px] text-accent-primary hover:underline">
+                            RESET LAYOUT
+                        </button>
+                    </div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 font-mono text-xs space-y-1 bg-black/20">
                     {logs.map((log, i) => (

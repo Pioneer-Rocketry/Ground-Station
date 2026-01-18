@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ResponsiveContainer, LineChart, Line, YAxis } from 'recharts';
+import { createPortal } from 'react-dom';
+import { ResponsiveContainer, LineChart, Line, YAxis, XAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { cn } from '../../lib/utils';
-import { Wifi } from 'lucide-react';
+import { Wifi, Maximize2, X } from 'lucide-react';
 
 export function PlotWidget({ label, value, values = {}, unit, subLabel, className, color = '#8884d8', min, max }) {
     const [history, setHistory] = useState([]);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     // Derive active sources directly from props
     // We accumulate ALL sources seen over time if we really wanted to, but the chart usually only cares about what's current or what's in history?
@@ -38,6 +40,29 @@ export function PlotWidget({ label, value, values = {}, unit, subLabel, classNam
         return arr.sort();
     }, [history, value]);
 
+    const maxValues = React.useMemo(() => {
+        const maxs = {};
+        sources.forEach((source) => {
+            const sourceMax = Math.max(...history.map((pt) => pt[source] || -Infinity));
+            if (isFinite(sourceMax)) maxs[source] = sourceMax;
+        });
+        return maxs;
+    }, [history, sources]);
+
+    const minValues = React.useMemo(() => {
+        const mins = {};
+        sources.forEach((source) => {
+            const sourceMin = Math.min(
+                ...history.map((pt) => {
+                    const v = pt[source];
+                    return v !== undefined && v !== null ? v : Infinity;
+                })
+            );
+            if (isFinite(sourceMin)) mins[source] = sourceMin;
+        });
+        return mins;
+    }, [history, sources]);
+
     // Keep track of value updates to append to history
     useEffect(() => {
         setHistory((prev) => {
@@ -49,7 +74,17 @@ export function PlotWidget({ label, value, values = {}, unit, subLabel, classNam
                 point.default = value;
             }
 
-            return [...prev.slice(-49), point]; // Keep last 50
+            // Determine window size based on number of active sources in the specific update
+            // Note: This relies on 'values' containing all concurrent sources.
+            // If sources report at different rates, we might flicker if we only check 'values'.
+            // However, the Dashboard passes the complete 'valuesBySource' state, so it should be stable.
+            const activeKeys = Object.keys(values).filter((k) => k !== 'time' && k !== 'default' && k !== 'Unknown');
+            const isMultiDevice = activeKeys.length > 1;
+
+            // "Running" mode for multi-device (50 points), "Cumulative" for single (2000 points)
+            const windowSize = isMultiDevice ? 50 : 2000;
+
+            return [...prev, point].slice(-windowSize);
         });
     }, [values, value]); // Depend on values object
 
@@ -74,7 +109,12 @@ export function PlotWidget({ label, value, values = {}, unit, subLabel, classNam
         <div className={cn('bg-bg-panel border border-border-color rounded-lg relative overflow-hidden flex flex-col', className)}>
             {/* Header Area */}
             <div className="px-4 pt-3 shrink-0 flex items-start justify-between z-10">
-                <span className="text-text-muted text-xs font-semibold uppercase tracking-wider block">{label}</span>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setIsExpanded(true)} className="text-text-muted hover:text-white transition-colors">
+                        <Maximize2 size={14} />
+                    </button>
+                    <span className="text-text-muted text-xs font-semibold uppercase tracking-wider block">{label}</span>
+                </div>
 
                 <div className="flex flex-row gap-4 items-baseline">
                     {sources.length > 0 ? (
@@ -117,6 +157,68 @@ export function PlotWidget({ label, value, values = {}, unit, subLabel, classNam
                     </LineChart>
                 </ResponsiveContainer>
             </div>
+            {/* Fullscreen Portal */}
+            {isExpanded &&
+                createPortal(
+                    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-10">
+                        <div className="bg-bg-panel border border-border-color rounded-xl w-full h-full max-w-7xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+                            {/* Modal Header */}
+                            <div className="p-4 border-b border-border-color flex justify-between items-center bg-black/20">
+                                <div>
+                                    <h2 className="text-xl font-bold text-white tracking-wide">{label}</h2>
+                                    <p className="text-xs text-text-muted uppercase tracking-wider">Detailed Analysis View</p>
+                                </div>
+                                <button onClick={() => setIsExpanded(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white">
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            {/* Detailed Chart */}
+                            <div className="flex-1 w-full min-h-0 p-6 bg-bg-dark/50">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={history}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                                        <XAxis dataKey="time" domain={['auto', 'auto']} tickFormatter={(t) => new Date(t).toLocaleTimeString()} stroke="#666" fontSize={12} tick={{ fill: '#888' }} height={50} />
+                                        <YAxis domain={[min !== undefined ? min : 'auto', max !== undefined ? max : 'auto']} stroke="#666" fontSize={12} tick={{ fill: '#888' }} unit={unit} width={50} />
+                                        <Tooltip contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '4px' }} labelFormatter={(t) => new Date(t).toLocaleTimeString()} />
+                                        {sources.map((source, idx) => (
+                                            <ReferenceLine
+                                                key={`ref-max-${source}`}
+                                                y={maxValues[source]}
+                                                stroke={getSourceColor(source, idx)}
+                                                strokeDasharray="3 3"
+                                                label={{
+                                                    value: label.toLowerCase().includes('altitude') ? `Apogee: ${maxValues[source]}` : `Max: ${maxValues[source]}`,
+                                                    fill: getSourceColor(source, idx),
+                                                    fontSize: 12,
+                                                    position: 'insideTopRight',
+                                                }}
+                                            />
+                                        ))}
+                                        {sources.map((source, idx) => (
+                                            <ReferenceLine
+                                                key={`ref-min-${source}`}
+                                                y={minValues[source]}
+                                                stroke={getSourceColor(source, idx)}
+                                                strokeDasharray="3 3"
+                                                label={{
+                                                    value: `Min: ${minValues[source]}`,
+                                                    fill: getSourceColor(source, idx),
+                                                    fontSize: 12,
+                                                    position: 'insideBottomRight',
+                                                }}
+                                            />
+                                        ))}
+                                        {sources.map((source, idx) => (
+                                            <Line key={source} type="monotone" dataKey={source} stroke={getSourceColor(source, idx)} strokeWidth={2} dot={false} isAnimationActive={false} />
+                                        ))}
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>,
+                    document.body
+                )}
         </div>
     );
 }

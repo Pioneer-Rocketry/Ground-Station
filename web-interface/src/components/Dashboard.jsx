@@ -17,7 +17,7 @@ const DEFAULT_WIDGETS = [
     { id: 'battery', type: 'plot', label: 'Battery', unit: 'V', className: 'col-span-1 h-32', color: '#ff8042' },
     { id: 'flight_time', type: 'stat', label: 'Flight Time', unit: 's', className: 'col-span-1 h-32' },
     { id: 'pyro', type: 'pyro', className: 'col-span-1 md:col-span-2 h-32' },
-    { id: 'message', type: 'message', className: 'col-span-1 md:col-span-2 h-32' },
+    { id: 'message', type: 'message', className: 'col-span-1 h-32' },
 ];
 
 export function Dashboard() {

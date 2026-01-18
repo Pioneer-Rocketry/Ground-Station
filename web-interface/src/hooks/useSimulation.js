@@ -36,8 +36,8 @@ export function useSimulation() {
 
         // Initialize Devices
         const devices = [
-            createDevice('PTR', 0.01, 0.01),
-            createDevice('FLCTS', -0.01, -0.01)
+            createDevice('PTR', 0.0001, 0.0001),
+            createDevice('FLCTS', -0.0001, -0.0001)
         ];
 
         intervalRef.current = setInterval(() => {
@@ -114,7 +114,7 @@ export function useSimulation() {
                 updateTelemetry('accel', data.accel, dev.name);
                 updateTelemetry('gpsLat', data.gpsLat, dev.name);
                 updateTelemetry('gpsLng', data.gpsLng, dev.name);
-                updatePath(dev.name, data.gpsLat, data.gpsLng);
+                updatePath(dev.name, data.gpsLat, data.gpsLng, data.altitude);
                 updateTelemetry('status', data.status, dev.name);
                 updateTelemetry('statusCode', data.statusCode, dev.name);
                 updateTelemetry('battVoltage', data.battVoltage, dev.name);
