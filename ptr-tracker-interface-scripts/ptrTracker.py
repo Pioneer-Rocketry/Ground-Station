@@ -64,12 +64,16 @@ client.username_pw_set(os.getenv("USERNAME"), os.getenv("PASSWORD"))
 client.connect(os.getenv("MQTT_BROKER"), int(os.getenv("MQTT_PORT")), keepalive=60)
 client.loop_start()
 
+client.subscribe(f"{MQTT_TOPIC}/control")
+client.subscribe(f"{MQTT_BASE}/devices")
 
 if not HARDWARE:
     while True:
         file = open("examplePTR.txt", "r")
         for line in file:
-            decodedData = json.loads(line)
+            try:
+                decodedData = json.loads(line)
+            except: pass
             sendData(client, decodedData)
 
             time.sleep(1/20)

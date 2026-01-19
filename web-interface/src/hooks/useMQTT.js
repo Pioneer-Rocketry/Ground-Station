@@ -3,11 +3,13 @@ import { useState, useEffect, useRef } from 'react';
 import mqtt from 'mqtt';
 import { useTelemetry } from '../contexts/TelemetryContext';
 import { parseTelemetry, getStatusString, decodePyro } from '../lib/parser';
+import { ConstructionIcon } from 'lucide-react';
 
 export function useMQTT() {
     const { updateTelemetry, addLog, setConnectionStatus, setIsHost, clearSources, updatePath } = useTelemetry();
     const [client, setClient] = useState(null);
     const [status, setStatus] = useState('Disconnected');
+    const [devices, setDevices] = useState([]);
 
     const [baseTopic, setTopic] = useState(null);
 
@@ -47,11 +49,34 @@ export function useMQTT() {
                         addLog(`Subscribed to topic: ${topic}`);
                     }
                 });
+
+                mqttClient.subscribe("telemetry/devices", (err) => {
+                    if (err) {
+                        addLog(`Failed to subscribe to ${topic}: ${err.message}`, 'error');
+                    } else {
+                        addLog(`Subscribed to topic: ${topic}`);
+                    }
+                });
+
+                mqttClient.publish("telemetry/devices", "list");
+
             });
 
             mqttClient.on('message', (topic, message) => {
+
                 const msgStr = message.toString();
-                // console.log('[MQTT] RX Topic:', topic, 'Msg:', msgStr);
+
+                if (topic == "telemetry/devices") {
+                    console.log(msgStr)
+                    if (msgStr == "list") return;
+
+                    if (!devices.includes(msgStr)) {
+                        setDevices([...devices, msgStr]);
+                        console.log(`New Device ${msgStr}`);
+                    }
+
+                    return;
+                }
 
                 // 1. Try to parse as JSON (Object or Scalar)
                 let parsedJSON = undefined;
@@ -122,11 +147,16 @@ export function useMQTT() {
                             break
 
                         case "latitude":
+                            
                             keyToUpdate = 'latitude';
+                            lastGps.current.lat = valToUpdate;
+                            lastGps.current.latUpdated = true;
                             break
 
                         case "longitude":
                             keyToUpdate = 'longitude';
+                            lastGps.current.long = valToUpdate;
+                            lastGps.current.longUpdated = true;
                             break
                     }
                 }
