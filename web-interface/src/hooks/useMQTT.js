@@ -147,7 +147,6 @@ export function useMQTT() {
                             break
 
                         case "latitude":
-                            
                             keyToUpdate = 'latitude';
                             lastGps.current.lat = valToUpdate;
                             lastGps.current.latUpdated = true;
@@ -172,25 +171,6 @@ export function useMQTT() {
                     // console.log(`[MQTT] Mapping topic "${lastPart}" -> "${keyToUpdate}":`, valToUpdate);
                     updateTelemetry(keyToUpdate, valToUpdate, device);
                     return;
-                }
-
-                // 3. Fallback to Serial-style parser (for "F B" packets)
-                try {
-                    const data = parseTelemetry(msgStr);
-                    if (data.type === 'telemetry') {
-                        // Mark all keys as MQTT source
-                        Object.entries(data).forEach(([k, v]) => {
-                            if (k !== 'type' && k !== 'raw') {
-                                updateTelemetry(k, v, device);
-                            }
-                        });
-
-                    } else if (data.type === 'other' && data.raw.trim().length > 0) {
-                        // Only log if not handled above to avoid noise
-                        // addLog(`RX: ${data.raw.substring(0, 50)}`);
-                    }
-                } catch (e) {
-                    // ignore
                 }
             });
 
