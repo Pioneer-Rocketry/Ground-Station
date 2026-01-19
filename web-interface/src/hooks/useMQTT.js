@@ -5,11 +5,13 @@ import { useTelemetry } from '../contexts/TelemetryContext';
 import { parseTelemetry, getStatusString, decodePyro } from '../lib/parser';
 
 export function useMQTT() {
-    const { updateTelemetry, addLog, setConnectionStatus, setIsHost, clearSources } = useTelemetry();
+    const { updateTelemetry, addLog, setConnectionStatus, setIsHost, clearSources, updatePath } = useTelemetry();
     const [client, setClient] = useState(null);
     const [status, setStatus] = useState('Disconnected');
 
     const [baseTopic, setTopic] = useState(null);
+
+    let lastGps = useRef({ lat: null, lng: null, alt: null, updatedLat: false, updatedLong: false });
 
     const connectMQTT = (url, username, password, topic) => {
         setConnectionStatus('Connecting MQTT...');
@@ -79,15 +81,29 @@ export function useMQTT() {
 
                 // Map topic suffix to internal state key
                 switch (lastPart) {
-                    case 'altitude': keyToUpdate = 'altitude'; break;
                     case 'speedVert': keyToUpdate = 'speedVert'; break;
                     case 'accel': keyToUpdate = 'accel'; break;
                     case 'battVoltage': keyToUpdate = 'battVoltage'; break;
                     case 'time': keyToUpdate = 'flightTime'; break; // Mapping "time" -> "flightTime"
-                    case 'gpsLat': keyToUpdate = 'gpsLat'; break;
-                    case 'gpsLng': keyToUpdate = 'gpsLng'; break;
                     case 'gpsState': keyToUpdate = 'gpsState'; break;
                     case 'angle': keyToUpdate = 'angle'; break;
+
+                    case 'altitude':
+                        keyToUpdate = 'altitude';
+                        lastGps.current.alt = valToUpdate;
+                        break;
+
+                    case 'gpsLat':
+                        keyToUpdate = 'gpsLat';
+                        lastGps.current.lat = valToUpdate;
+                        lastGps.current.latUpdated = true;
+                        break;
+                    
+                    case 'gpsLng': 
+                        keyToUpdate = 'gpsLng';
+                        lastGps.current.long = valToUpdate;
+                        lastGps.current.longUpdated = true;
+                        break;
 
                     case 'status':
                         // Handle status: update both code and string
@@ -109,6 +125,13 @@ export function useMQTT() {
                             keyToUpdate = lastPart;
                         }
                         break;
+                }
+
+                if (lastGps.current.latUpdated && lastGps.current.longUpdated) {
+                    updatePath('MQTT', lastGps.current.lat, lastGps.current.long, lastGps.current.alt)
+
+                    lastGps.current.latUpdated = false;
+                    lastGps.current.longUpdated = false;
                 }
 
                 if (keyToUpdate) {
