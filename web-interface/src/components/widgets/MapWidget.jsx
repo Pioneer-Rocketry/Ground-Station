@@ -74,7 +74,7 @@ export function MapWidget({ className }) {
     const map = useRef(null);
     const coordsRef = useRef([0, 0]); // Store latest for event handlers
 
-    const { data, pathsBySource, valuesBySource, is3DMode } = useTelemetry();
+    const { data, pathsBySource, valuesBySource, is3DMode, lastPacketTimes } = useTelemetry();
     const { latitude, longitude } = data;
 
     // Track markers by source: { [source]: Marker }
@@ -94,9 +94,9 @@ export function MapWidget({ className }) {
         map.current = new maplibregl.Map({
             container: mapContainer.current,
             style: SIMPLE_STYLE,
-            center: [-90.48, 42.7329], // Busby Hall, UW-Platteville
+            center: [-90.49012346607287, 42.72897398692258], // Busby Hall, UW-Platteville
             zoom: 16,
-            pitch: 60, // Start with some tilt
+            pitch: 45, // Start with some tilt
             bearing: -17.6,
             maxPitch: 85,
             doubleClickZoom: false,
@@ -108,7 +108,7 @@ export function MapWidget({ className }) {
                 showZoom: true,
                 showCompass: true,
             }),
-            'top-right'
+            'top-right',
         );
 
         // Initial setup only
@@ -187,9 +187,9 @@ export function MapWidget({ className }) {
     useEffect(() => {
         if (!map.current) return;
 
-        // Throttle updates to ~10fps (100ms) to prevent UI lag during high-speed replay
+        // Throttle removed to ensure we update on every packet as requested
+        // was: if (now - lastMapUpdate.current < 100 && Object.keys(pathsBySource).length > 0) return;
         const now = Date.now();
-        if (now - lastMapUpdate.current < 100 && Object.keys(pathsBySource).length > 0) return;
         lastMapUpdate.current = now;
 
         // Ensure we handle all sources found in pathsBySource
@@ -401,7 +401,7 @@ export function MapWidget({ className }) {
                 map.current.panTo(currentPos);
             }
         });
-    }, [pathsBySource]);
+    }, [pathsBySource, lastPacketTimes]);
 
     // User Location Tracking
     useEffect(() => {

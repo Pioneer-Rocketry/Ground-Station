@@ -48,7 +48,18 @@ export function TelemetryProvider({ children }) {
         setPathsBySource({});
     };
 
+    const [lastPacketTimes, setLastPacketTimes] = useState({});
+
+    const updateLastPacketTime = (source) => {
+        setLastPacketTimes((prev) => ({
+            ...prev,
+            [source]: Date.now(),
+        }));
+    };
+
     const updatePath = (source, lat, lng, alt) => {
+        if (lat === 0 && lng === 0) return;
+        updateLastPacketTime(source);
         setPathsBySource((prev) => {
             const currentPath = prev[source] || [];
             const last = currentPath[currentPath.length - 1];
@@ -156,6 +167,7 @@ export function TelemetryProvider({ children }) {
     const [valuesBySource, setValuesBySource] = useState({});
 
     const updateTelemetry = (key, value, source = 'Unknown') => {
+        updateLastPacketTime(source);
         // Update valuesBySource
         setValuesBySource((prev) => {
             const currentMetricSources = prev[key] || {};
@@ -199,6 +211,7 @@ export function TelemetryProvider({ children }) {
                 clearSources,
                 is3DMode,
                 setIs3DMode,
+                lastPacketTimes,
             }}>
             {children}
         </TelemetryContext.Provider>

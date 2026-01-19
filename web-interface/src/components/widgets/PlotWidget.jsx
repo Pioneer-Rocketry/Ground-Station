@@ -82,7 +82,9 @@ export function PlotWidget({ label, value, values = {}, unit, subLabel, classNam
             const isMultiDevice = activeKeys.length > 1;
 
             // "Running" mode for multi-device (50 points), "Cumulative" for single (2000 points)
-            const windowSize = isMultiDevice ? 50 : 2000;
+            // UPDATE: User requested to stop rolling in MQTT (multi-device).
+            // We'll use a larger window for everything to ensure history is kept.
+            const windowSize = 20000;
 
             return [...prev, point].slice(-windowSize);
         });

@@ -9,8 +9,9 @@ export function useMQTT() {
     const { updateTelemetry, addLog, setConnectionStatus, setIsHost, clearSources, updatePath } = useTelemetry();
     const [client, setClient] = useState(null);
     const [status, setStatus] = useState('Disconnected');
-    const [devices, setDevices] = useState([]);
-    const [gpsLocations, setGPSLocation] = useState({});
+    const devicesRef = useRef([]);
+    const gpsLocationsRef = useRef({});
+    const updateFlagsRef = useRef({});
 
     const [baseTopic, setTopic] = useState(null);
     
@@ -66,11 +67,12 @@ export function useMQTT() {
                 if (topic == "telemetry/devices") {
                     if (msgStr == "list") return;
 
-                    if (!devices.includes(msgStr)) {
-                        devices.push(msgStr);
+
+                    if (!devicesRef.current.includes(msgStr)) {
+                        devicesRef.current.push(msgStr);
                         console.log(`New Device ${msgStr}`);
 
-                        gpsLocations[msgStr] = {
+                        gpsLocationsRef.current[msgStr] = {
                             "latitude": 0.0000,
                             "longitude": 0.0000,
                             "alt": 0.0,
@@ -88,13 +90,14 @@ export function useMQTT() {
                     // Not JSON
                 }
 
+
                 let device = topic.split('/')[1];
 
-                if (!devices.includes(device)) {
-                    devices.push(device);
+                if (!devicesRef.current.includes(device)) {
+                    devicesRef.current.push(device);
                     console.log(`New Device ${device}`);
 
-                    gpsLocations[device] = {
+                    gpsLocationsRef.current[device] = {
                         "latitude": 0.0000,
                         "longitude": 0.0000,
                         "alt": 0.0,
@@ -118,17 +121,17 @@ export function useMQTT() {
 
                         case 'altitude':
                             keyToUpdate = 'altitude';
-                            gpsLocations[device]["altitude"] = valToUpdate;
+                            gpsLocationsRef.current[device]["altitude"] = valToUpdate;
                             break;
 
                         case 'gpsLat':
                             keyToUpdate = 'latitude';
-                            gpsLocations[device]["latitude"] = valToUpdate;
+                            gpsLocationsRef.current[device]["latitude"] = valToUpdate;
                             break;
                         
                         case 'gpsLng': 
                             keyToUpdate = 'longitude';
-                            gpsLocations[device]["longitude"] = valToUpdate;
+                            gpsLocationsRef.current[device]["longitude"] = valToUpdate;
                             break;
 
                         case 'status':
@@ -160,21 +163,28 @@ export function useMQTT() {
 
                         case "latitude":
                             keyToUpdate = 'latitude';
-                            gpsLocations[device]["latitude"] = valToUpdate;
+                            gpsLocationsRef.current[device]["latitude"] = valToUpdate;
                             break
 
                         case "longitude":
                             keyToUpdate = 'longitude';
-                            gpsLocations[device]["longitude"] = valToUpdate;
+                            gpsLocationsRef.current[device]["longitude"] = valToUpdate;
                             break
                     }
                 }
 
-                if ((gpsLocations[device]["latitude"] != 0) && (gpsLocations[device]["longitude"] != 0)) {
-                    updatePath(device, gpsLocations[device]["latitude"], gpsLocations[device]["longitude"], gpsLocations[device]["altitude"])
+                if (!updateFlagsRef.current[device]) updateFlagsRef.current[device] = {};
 
-                    gpsLocations[device]["latitude"]  = 0;
-                    gpsLocations[device]["longitude"] = 0;
+                if (keyToUpdate === 'latitude') updateFlagsRef.current[device].hasLat = true;
+                if (keyToUpdate === 'longitude') updateFlagsRef.current[device].hasLng = true;
+
+                if (updateFlagsRef.current[device].hasLat && updateFlagsRef.current[device].hasLng) {
+                    // Check for (0,0) explicitly or rely on TelemetryContext. 
+                    // We'll trust TelemetryContext's safeguard but ensure we have valid datatypes implicitly.
+                    updatePath(device, gpsLocationsRef.current[device]["latitude"], gpsLocationsRef.current[device]["longitude"], gpsLocationsRef.current[device]["altitude"]);
+
+                    // Reset flags to wait for the next pair
+                    updateFlagsRef.current[device] = { hasLat: false, hasLng: false };
                 }
 
                 // console.log(gpsLocations);

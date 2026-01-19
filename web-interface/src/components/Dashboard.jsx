@@ -5,6 +5,7 @@ import { PlotWidget } from './widgets/PlotWidget';
 import { MapWidget } from './widgets/MapWidget';
 import { PyroWidget } from './widgets/PyroWidget';
 import { MessageWidget } from './widgets/MessageWidget';
+import { TTLWidget } from './widgets/TTLWidget';
 import { useTelemetry } from '../contexts/TelemetryContext';
 
 // Define available widgets
@@ -15,6 +16,7 @@ const DEFAULT_WIDGETS = [
     { id: 'mission_status', type: 'mission_status', className: 'col-span-1 md:col-span-2 lg:col-span-2 h-32' },
     { id: 'accel', type: 'plot', label: 'Acceleration', unit: 'm/s²', className: 'col-span-1 h-32', color: '#82ca9d' },
     { id: 'battery', type: 'plot', label: 'Battery', unit: 'V', className: 'col-span-1 h-32', color: '#ff8042' },
+    { id: 'ttl', type: 'ttl', className: 'col-span-1 h-32' },
     { id: 'flight_time', type: 'stat', label: 'Flight Time', unit: 's', className: 'col-span-1 h-32' },
     { id: 'pyro', type: 'pyro', className: 'col-span-1 md:col-span-2 h-32' },
     { id: 'message', type: 'message', className: 'col-span-1 h-32' },
@@ -177,6 +179,9 @@ export function Dashboard() {
 
             case 'message':
                 return <MessageWidget className="h-full" />;
+
+            case 'ttl':
+                return <TTLWidget className="h-full" />;
 
             default:
                 return null;
