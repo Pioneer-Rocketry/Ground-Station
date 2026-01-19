@@ -10,10 +10,10 @@ export function useMQTT() {
     const [client, setClient] = useState(null);
     const [status, setStatus] = useState('Disconnected');
     const [devices, setDevices] = useState([]);
-    const [gpsLocations, setGPSLocation] = useState(null);
+    const [gpsLocations, setGPSLocation] = useState({});
 
     const [baseTopic, setTopic] = useState(null);
-
+    
     const connectMQTT = (url, username, password, topic) => {
         setConnectionStatus('Connecting MQTT...');
         addLog(`Connecting to MQTT broker at ${url} on topic ${topic}...`);
@@ -48,13 +48,37 @@ export function useMQTT() {
                         addLog(`Subscribed to topic: ${topic}`);
                     }
                 });
+
+                mqttClient.subscribe("telemetry/devices", (err) => {
+                    if (err) {
+                        addLog(`Failed to subscribe to ${topic}: ${err.message}`, 'error');
+                    } else {
+                        addLog(`Subscribed to topic: ${topic}`);
+                    }
+                });
+
+                mqttClient.publish("telemetry/devices", "list");
             });
 
             mqttClient.on('message', (topic, message) => {
-
-                let gps = gpsLocations;
-
                 const msgStr = message.toString();
+
+                if (topic == "telemetry/devices") {
+                    if (msgStr == "list") return;
+
+                    if (!devices.includes(msgStr)) {
+                        devices.push(msgStr);
+                        console.log(`New Device ${msgStr}`);
+
+                        gpsLocations[msgStr] = {
+                            "latitude": 0.0000,
+                            "longitude": 0.0000,
+                            "alt": 0.0,
+                        }
+                    }
+
+                    return;
+                }
 
                 // 1. Try to parse as JSON (Object or Scalar)
                 let parsedJSON = undefined;
@@ -67,10 +91,10 @@ export function useMQTT() {
                 let device = topic.split('/')[1];
 
                 if (!devices.includes(device)) {
-                    setDevices([...devices, device]);
+                    devices.push(device);
                     console.log(`New Device ${device}`);
 
-                    gps[device] = {
+                    gpsLocations[device] = {
                         "latitude": 0.0000,
                         "longitude": 0.0000,
                         "alt": 0.0,
@@ -94,17 +118,17 @@ export function useMQTT() {
 
                         case 'altitude':
                             keyToUpdate = 'altitude';
-                            gps[device]["altitude"] = valToUpdate;
+                            gpsLocations[device]["altitude"] = valToUpdate;
                             break;
 
                         case 'gpsLat':
                             keyToUpdate = 'latitude';
-                            gps[device]["latitude"] = valToUpdate;
+                            gpsLocations[device]["latitude"] = valToUpdate;
                             break;
                         
                         case 'gpsLng': 
                             keyToUpdate = 'longitude';
-                            gps[device]["longitude"] = valToUpdate;
+                            gpsLocations[device]["longitude"] = valToUpdate;
                             break;
 
                         case 'status':
@@ -136,25 +160,24 @@ export function useMQTT() {
 
                         case "latitude":
                             keyToUpdate = 'latitude';
-                            gps[device]["latitude"] = valToUpdate;
+                            gpsLocations[device]["latitude"] = valToUpdate;
                             break
 
                         case "longitude":
                             keyToUpdate = 'longitude';
-                            gps[device]["longitude"] = valToUpdate;
+                            gpsLocations[device]["longitude"] = valToUpdate;
                             break
                     }
                 }
 
-                if ((gps[device]["latitude"] != 0) && (gps[device]["longitude"] != 0)) {
-                    updatePath(device, gps[device]["latitude"], gps[device]["longitude"], gps[device]["altitude"])
+                if ((gpsLocations[device]["latitude"] != 0) && (gpsLocations[device]["longitude"] != 0)) {
+                    updatePath(device, gpsLocations[device]["latitude"], gpsLocations[device]["longitude"], gpsLocations[device]["altitude"])
 
-                    gps[device]["latitude"]  = 0;
-                    gps[device]["longitude"] = 0;
+                    gpsLocations[device]["latitude"]  = 0;
+                    gpsLocations[device]["longitude"] = 0;
                 }
 
-                // console.log(gps);
-                setGPSLocation(gps);
+                // console.log(gpsLocations);
 
                 if (keyToUpdate) {
                     // console.log(`[MQTT] Mapping topic "${lastPart}" -> "${keyToUpdate}":`, valToUpdate);
