@@ -75,7 +75,7 @@ export function MapWidget({ className }) {
     const coordsRef = useRef([0, 0]); // Store latest for event handlers
 
     const { data, pathsBySource, valuesBySource, is3DMode } = useTelemetry();
-    const { gpsLat, gpsLng } = data;
+    const { latitude, longitude } = data;
 
     // Track markers by source: { [source]: Marker }
     const markersRef = useRef({});
@@ -84,8 +84,8 @@ export function MapWidget({ className }) {
 
     // Update ref when data changes (for interaction handlers primarily)
     useEffect(() => {
-        coordsRef.current = [gpsLat, gpsLng];
-    }, [gpsLat, gpsLng]);
+        coordsRef.current = [latitude, longitude];
+    }, [latitude, longitude]);
 
     useEffect(() => {
         if (map.current) return;

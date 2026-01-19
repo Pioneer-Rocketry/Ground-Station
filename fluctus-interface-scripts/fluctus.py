@@ -79,6 +79,7 @@ client.loop_start()
 client.subscribe(f"{MQTT_TOPIC}/control")
 client.subscribe(f"{MQTT_BASE}/devices")
 
+run = True
 if not HARDWARE:
     while True:
         if run:
@@ -93,7 +94,7 @@ if not HARDWARE:
                     command = None
 
             file.close()
-            run = False
+            # run = False
 
 else:
     ser = serial.Serial(args.comport, timeout=1)

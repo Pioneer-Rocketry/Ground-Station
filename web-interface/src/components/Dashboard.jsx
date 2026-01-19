@@ -123,12 +123,12 @@ export function Dashboard() {
                             <div className="bg-black/50 px-2 py-1 rounded backdrop-blur-sm flex items-center gap-3">
                                 <div className="flex items-baseline gap-1">
                                     <span className="text-[10px] text-text-muted font-bold">LAT</span>
-                                    <span className="text-sm font-mono text-white">{data.gpsLat.toFixed(6)}</span>
+                                    <span className="text-sm font-mono text-white">{data.latitude.toFixed(6)}</span>
                                 </div>
                                 <div className="w-px h-3 bg-white/20"></div>
                                 <div className="flex items-baseline gap-1">
                                     <span className="text-[10px] text-text-muted font-bold">LNG</span>
-                                    <span className="text-sm font-mono text-white">{data.gpsLng.toFixed(6)}</span>
+                                    <span className="text-sm font-mono text-white">{data.longitude.toFixed(6)}</span>
                                 </div>
                             </div>
                         </div>

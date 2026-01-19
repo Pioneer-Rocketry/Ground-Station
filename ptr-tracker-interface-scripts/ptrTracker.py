@@ -72,7 +72,7 @@ if not HARDWARE:
             decodedData = json.loads(line)
             sendData(client, decodedData)
 
-            time.sleep(1)
+            time.sleep(1/20)
 
         file.close()
         run = False

@@ -9,7 +9,7 @@ export function Sidebar({ onCommand, onResetLayout, isOpen, onClose }) {
     const handleStart = () => {
         let c = channel;
         if (c.length < 2) c = '0' + c;
-        onCommand(`start${band}${c}Fluctus`);
+        onCommand("telemetry/fluctus/control", `start${band}${c}Fluctus`);
     };
 
     return (

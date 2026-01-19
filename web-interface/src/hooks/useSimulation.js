@@ -100,8 +100,8 @@ export function useSimulation() {
                     statusCode: time < 5 ? 1 : (time < 30 ? 4 : 5),
                     battVoltage: 8 - (Math.random() * 0.01), // Battery drains slightly
                     flightTime: time,
-                    gpsLat: lat,
-                    gpsLng: lng,
+                    latitude: lat,
+                    longitude: lng,
                     gpsState: 3,
                     pyro: { A: 'CONTINUITY', B: 'DISABLED', C: 'UNKNOWN' },
                     message: { id: 'A', value: 1234, decodedValue: 1234 }
@@ -112,9 +112,9 @@ export function useSimulation() {
                 updateTelemetry('altitude', data.altitude, dev.name);
                 updateTelemetry('speedVert', data.speedVert, dev.name);
                 updateTelemetry('accel', data.accel, dev.name);
-                updateTelemetry('gpsLat', data.gpsLat, dev.name);
-                updateTelemetry('gpsLng', data.gpsLng, dev.name);
-                updatePath(dev.name, data.gpsLat, data.gpsLng, data.altitude);
+                updateTelemetry('latitude', data.latitude, dev.name);
+                updateTelemetry('longitude', data.longitude, dev.name);
+                updatePath(dev.name, data.latitude, data.longitude, data.altitude);
                 updateTelemetry('status', data.status, dev.name);
                 updateTelemetry('statusCode', data.statusCode, dev.name);
                 updateTelemetry('battVoltage', data.battVoltage, dev.name);

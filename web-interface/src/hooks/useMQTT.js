@@ -30,8 +30,6 @@ export function useMQTT() {
             reconnectPeriod: 1000,
         };
 
-        console.log(options);
-
         try {
             const mqttClient = mqtt.connect(url, options);
 
@@ -63,72 +61,78 @@ export function useMQTT() {
                     // Not JSON
                 }
 
-                // If it is a JSON object, merge it
-                if (parsedJSON && typeof parsedJSON === 'object' && !Array.isArray(parsedJSON)) {
-                    console.log('[MQTT] Merging JSON Object:', parsedJSON);
-                    Object.entries(parsedJSON).forEach(([k, v]) => {
-                        updateTelemetry(k, v, 'MQTT');
-                    });
-                    return;
-                }
-
-                // 2. Topic-based Mapping (Scalar values)
+                let device = topic.split('/')[1];
+                let dataType = topic.split('/')[2];
+                
                 // If the topic ends with a known key, update that key
-                const lastPart = topic.split('/').pop();
-
-                let keyToUpdate = null;
+                let keyToUpdate = null
                 let valToUpdate = (parsedJSON !== undefined) ? parsedJSON : msgStr;
 
-                // Map topic suffix to internal state key
-                switch (lastPart) {
-                    case 'speedVert': keyToUpdate = 'speedVert'; break;
-                    case 'accel': keyToUpdate = 'accel'; break;
-                    case 'battVoltage': keyToUpdate = 'battVoltage'; break;
-                    case 'time': keyToUpdate = 'flightTime'; break; // Mapping "time" -> "flightTime"
-                    case 'gpsState': keyToUpdate = 'gpsState'; break;
-                    case 'angle': keyToUpdate = 'angle'; break;
+                if (device == "fluctus") {
+                    switch (dataType) {
+                        case 'speedVert':   keyToUpdate = 'speedVert'; break;
+                        case 'accel':       keyToUpdate = 'accel'; break;
+                        case 'battVoltage': keyToUpdate = 'battVoltage'; break;
+                        case 'time':        keyToUpdate = 'flightTime'; break; // Mapping "time" -> "flightTime"
+                        case 'gpsState':    keyToUpdate = 'gpsState'; break;
+                        case 'angle':       keyToUpdate = 'angle'; break;
 
-                    case 'altitude':
-                        keyToUpdate = 'altitude';
-                        lastGps.current.alt = valToUpdate;
-                        break;
+                        case 'altitude':
+                            keyToUpdate = 'altitude';
+                            lastGps.current.alt = valToUpdate;
+                            break;
 
-                    case 'gpsLat':
-                        keyToUpdate = 'gpsLat';
-                        lastGps.current.lat = valToUpdate;
-                        lastGps.current.latUpdated = true;
-                        break;
-                    
-                    case 'gpsLng': 
-                        keyToUpdate = 'gpsLng';
-                        lastGps.current.long = valToUpdate;
-                        lastGps.current.longUpdated = true;
-                        break;
+                        case 'gpsLat':
+                            keyToUpdate = 'latitude';
+                            lastGps.current.lat = valToUpdate;
+                            lastGps.current.latUpdated = true;
+                            break;
+                        
+                        case 'gpsLng': 
+                            keyToUpdate = 'longitude';
+                            lastGps.current.long = valToUpdate;
+                            lastGps.current.longUpdated = true;
+                            break;
 
-                    case 'status':
-                        // Handle status: update both code and string
-                        const code = parseInt(valToUpdate);
-                        updateTelemetry('statusCode', code, 'MQTT');
-                        updateTelemetry('status', getStatusString(code), 'MQTT');
-                        return; // Done
+                        case 'status':
+                            // Handle status: update both code and string
+                            const code = parseInt(valToUpdate);
+                            updateTelemetry('statusCode', code, device);
+                            updateTelemetry('status', getStatusString(code), device);
+                            return; // Done
 
-                    case 'pyroStates':
-                        // Handle pyro: decode byte
-                        const pyroVal = parseInt(valToUpdate);
-                        const pyroObj = decodePyro(pyroVal);
-                        updateTelemetry('pyro', pyroObj, 'MQTT');
-                        return; // Done
+                        case 'pyroStates':
+                            // Handle pyro: decode byte
+                            const pyroVal = parseInt(valToUpdate);
+                            const pyroObj = decodePyro(pyroVal);
+                            updateTelemetry('pyro', pyroObj, device);
+                            return; // Done
 
-                    default:
-                        // Check if it matches other direct keys
-                        if (['statusCode', 'flightTime', 'message'].includes(lastPart)) {
-                            keyToUpdate = lastPart;
-                        }
-                        break;
+                        default:
+                            // Check if it matches other direct keys
+                            if (['statusCode', 'flightTime', 'message'].includes(dataType)) {
+                                keyToUpdate = dataType;
+                            }
+                            break;
+                    }
+                } else if (device == "ptrTracker") {
+                    switch (dataType) {
+                        case "altitude":
+                            keyToUpdate = 'altitude';
+                            break
+
+                        case "latitude":
+                            keyToUpdate = 'latitude';
+                            break
+
+                        case "longitude":
+                            keyToUpdate = 'longitude';
+                            break
+                    }
                 }
 
                 if (lastGps.current.latUpdated && lastGps.current.longUpdated) {
-                    updatePath('MQTT', lastGps.current.lat, lastGps.current.long, lastGps.current.alt)
+                    updatePath(device, lastGps.current.lat, lastGps.current.long, lastGps.current.alt)
 
                     lastGps.current.latUpdated = false;
                     lastGps.current.longUpdated = false;
@@ -136,7 +140,7 @@ export function useMQTT() {
 
                 if (keyToUpdate) {
                     // console.log(`[MQTT] Mapping topic "${lastPart}" -> "${keyToUpdate}":`, valToUpdate);
-                    updateTelemetry(keyToUpdate, valToUpdate, 'MQTT');
+                    updateTelemetry(keyToUpdate, valToUpdate, device);
                     return;
                 }
 
@@ -147,7 +151,7 @@ export function useMQTT() {
                         // Mark all keys as MQTT source
                         Object.entries(data).forEach(([k, v]) => {
                             if (k !== 'type' && k !== 'raw') {
-                                updateTelemetry(k, v, 'MQTT');
+                                updateTelemetry(k, v, device);
                             }
                         });
 
@@ -199,8 +203,8 @@ export function useMQTT() {
         }
     };
 
-    const sendMQTTCommand = (command) => {
-        client.publish(`${baseTopic}/control`, command);
+    const sendMQTTCommand = (topic, command) => {
+        client.publish(topic, command);
     }
 
     // Auto cleanup

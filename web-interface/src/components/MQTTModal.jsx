@@ -59,7 +59,7 @@ export function MQTTModal({ isOpen, onClose, onConnect }) {
 
                     <div>
                         <label className="block text-xs uppercase tracking-wider text-text-muted mb-1">Topic</label>
-                        <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="telemetry/fluctus/#" required className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-accent-primary" />
+                        <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="telemetry/#" required className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-accent-primary" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
